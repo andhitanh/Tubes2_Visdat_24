@@ -1,0 +1,45 @@
+[theme]
+# Primary colors
+primaryColor = "#3182ce"
+backgroundColor = "#0f1419"
+secondaryBackgroundColor = "#1a1f2e"
+textColor = "#ffffff"
+
+# Font
+font = "sans serif"
+
+[server]
+# Server settings
+headless = true
+enableCORS = false
+enableXsrfProtection = false
+
+[browser]
+# Browser settings
+gatherUsageStats = false
+showErrorDetails = true
+
+[logger]
+# Logging level
+level = "info"
+
+[client]
+# Client settings
+caching = true
+displayEnabled = true
+showErrorDetails = true
+
+[runner]
+# Runner settings
+magicEnabled = true
+installTracer = false
+fixMatplotlib = true
+
+[mapbox]
+# Mapbox token (if needed for maps)
+# token = "your_mapbox_token_here"
+
+[deprecation]
+# Deprecation warnings
+showfileUploaderEncoding = false
+showPyplotGlobalUse = false

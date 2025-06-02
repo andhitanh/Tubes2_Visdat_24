@@ -1,0 +1,239 @@
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* Root variables for dark theme */
+:root {
+    --primary-bg: #0f1419;
+    --secondary-bg: #1a1f2e;
+    --accent-bg: #2d3748;
+    --text-primary: #ffffff;
+    --text-secondary: #a0aec0;
+    --accent-blue: #3182ce;
+    --accent-blue-light: #4299e1;
+    --border-color: #2d3748;
+    --success-color: #48bb78;
+    --warning-color: #ed8936;
+    --error-color: #f56565;
+}
+
+/* Global styles */
+.stApp {
+    background: linear-gradient(135deg, var(--primary-bg) 0%, var(--secondary-bg) 100%);
+    font-family: 'Inter', sans-serif;
+}
+
+/* Hide Streamlit branding */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+
+/* Custom header styling */
+.main-header {
+    background: var(--secondary-bg);
+    padding: 1rem 2rem;
+    border-radius: 10px;
+    margin-bottom: 2rem;
+    border: 1px solid var(--border-color);
+}
+
+/* Sidebar styling */
+.css-1d391kg {
+    background: var(--secondary-bg);
+    border-right: 1px solid var(--border-color);
+}
+
+.css-1d391kg .css-1v0mbdj {
+    color: var(--text-primary);
+}
+
+/* Metric cards styling */
+[data-testid="metric-container"] {
+    background: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    padding: 1rem;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+[data-testid="metric-container"]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+}
+
+[data-testid="metric-container"] > div {
+    color: var(--text-primary);
+}
+
+[data-testid="metric-container"] [data-testid="metric-value"] {
+    color: var(--accent-blue-light);
+    font-weight: 600;
+    font-size: 1.5rem;
+}
+
+[data-testid="metric-container"] [data-testid="metric-delta"] {
+    color: var(--success-color);
+}
+
+/* Chart containers */
+.js-plotly-plot {
+    background: var(--secondary-bg) !important;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    margin: 1rem 0;
+}
+
+/* Plotly chart styling */
+.plotly .modebar {
+    background: var(--secondary-bg) !important;
+}
+
+.plotly .modebar-btn {
+    color: var(--text-secondary) !important;
+}
+
+.plotly .modebar-btn:hover {
+    background: var(--accent-bg) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Selectbox and input styling */
+.stSelectbox > div > div {
+    background: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.stMultiSelect > div > div {
+    background: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+}
+
+.stDateInput > div > div {
+    background: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+/* Button styling */
+.stButton > button {
+    background: var(--accent-blue);
+    color: var(--text-primary);
+    border: none;
+    border-radius: 5px;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    transition: background 0.2s ease;
+}
+
+.stButton > button:hover {
+    background: var(--accent-blue-light);
+    border: none;
+}
+
+/* Text styling */
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text-primary) !important;
+    font-family: 'Inter', sans-serif;
+}
+
+.stMarkdown {
+    color: var(--text-primary);
+}
+
+/* Sidebar title */
+.css-1d391kg h1 {
+    color: var(--accent-blue-light) !important;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+/* Filter section styling */
+.css-1d391kg .stSelectbox label,
+.css-1d391kg .stMultiSelect label,
+.css-1d391kg .stDateInput label {
+    color: var(--text-primary) !important;
+    font-weight: 500;
+}
+
+/* Custom card styling for sections */
+.dashboard-card {
+    background: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Loading spinner */
+.stSpinner {
+    color: var(--accent-blue) !important;
+}
+
+/* Error and success messages */
+.stAlert {
+    background: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--primary-bg);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--accent-bg);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--border-color);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .main-header {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    [data-testid="metric-container"] {
+        margin-bottom: 1rem;
+    }
+    
+    .dashboard-card {
+        padding: 1rem;
+        margin: 0.5rem 0;
+    }
+}
+
+/* Animation for page load */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.stApp > div {
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* Custom styling for word cloud container */
+.stPyplot {
+    background: var(--secondary-bg);
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    padding: 1rem;
+}
