@@ -1,0 +1,102 @@
+import csv
+
+list_of_jenis_kejahatan = [
+    "Pencurian Dengan Pemberatan (Curat)",
+    "Penganiayaan",
+    "Penipuan / Perbuatan Curang",
+    "Pencurian Biasa",
+    "Narkotika (Narkoba)",
+    "Penggelapan",
+    "Curanmor R-2",
+    "Pengroyokan",
+    "Tindak Pidana Dalam Perlindungan Anak",
+    "Manipulasi data autentik secara elektronik (ITE)",
+    "Kekerasan Dalam Rumah Tangga",
+    "Penggelapan asal usul",
+    "Pencurian Dengan Kekerasan (Curas)",
+    "Pengerusakan",
+    "Pengancaman",
+    "Persetubuhan Terhadap Anak / Cabul Terhadap Anak",
+    "Kejahatan Terkait Senjata Tajam (Sajam) / Premanisme",
+    "Pemalsuan Surat Otentik",
+    "Membahayakan Keamanan Umum Bagi Orang / Barang",
+    "Menjual atau mengedarkan obat keras / bebas terbatas tanpa ijin"
+]
+
+data = [
+    "POLDA METRO JAYA,DKI JAKARTA,-6.2214,106.8098",
+    "POLDA SUMATERA UTARA,SUMATERA UTARA,3.5952,98.6722",
+    "POLDA JAWA TIMUR,JAWA TIMUR,-7.322222,112.730757",
+    "POLDA SULAWESI SELATAN,SULAWESI SELATAN,-5.1477,119.4327",
+    "POLDA JAWA BARAT,JAWA BARAT,-6.9386,107.7033",
+    "POLDA SUMATERA SELATAN,SUMATERA SELATAN,-2.9909,104.7566",
+    "POLDA LAMPUNG,LAMPUNG,-5.4444,105.2622",
+    "POLDA RIAU,RIAU,0.5071,101.4478",
+    "POLDA JAWA TENGAH,JAWA TENGAH,-7.0051,110.4381",
+    "POLDA NUSA TENGGARA TIMUR,NUSA TENGGARA TIMUR,-10.1772,123.607",
+    "POLDA SULAWESI TENGAH,SULAWESI TENGGARA,-0.8917,119.8707",
+    "POLDA SULAWESI UTARA,SULAWESI UTARA,1.4644,124.8333",
+    "POLDA SUMATERA BARAT,SUMATERA BARAT,-0.9358,100.3603",
+    "POLDA ACEH,ACEH,5.557,95.3169",
+    "POLDA PAPUA,PAPUA,-2.5367,140.7065",
+    "POLDA KALIMANTAN TIMUR,KALIMANTAN TIMUR,-0.5021,117.1537",
+    "POLDA JAMBI,JAMBI,-1.6224,103.6309",
+    "POLDA NUSA TENGGARA BARAT,NUSA TENGGARA BARAT,-8.5833,116.1167",
+    "POLDA BALI,BALI,-8.65,115.2167",
+    "POLDA SULAWESI TENGGARA,SULAWESI TENGGARA,-3.9778,122.5151",
+    "POLDA KALIMANTAN SELATAN,KALIMANTAN SELATAN,-3.3194,114.59",
+    "POLDA BANTEN,BANTEN,-6.1104,106.1633",
+    "POLDA KALIMANTAN BARAT,KALIMANTAN BARAT,-0.0263,109.3425",
+    "POLDA DAERAH ISTIMEWA YOGYAKARTA,DAERAH ISTIMEWA YOGYAKARTA,-7.8014,110.364",
+    "POLDA KEPULAUAN RIAU,KEPULAUAN RIAU,0.9167,104.45",
+    "POLDA KALIMANTAN TENGAH,KALIMANTAN TENGAH,-2.2096,113.9145",
+    "POLDA MALUKU,MALUKU,-3.6547,128.1906",
+    "POLDA BENGKULU,BENGKULU,-3.8004,102.2655",
+    "POLDA PAPUA BARAT DAYA,PAPUA BARAT DAYA,-0.875,131.25",
+    "POLDA GORONTALO,GORONTALO,0.5375,123.0586",
+    "POLDA MALUKU UTARA,MALUKU UTARA,0.7917,127.3875",
+    "POLDA PAPUA BARAT,PAPUA BARAT,-0.8667,134.0833",
+    "POLDA KEPULAUAN BANGKA BELITUNG,KEPULAUAN BANGKA BELITUNG,-2.1291,106.1316",
+    "POLDA SULAWESI BARAT,SULAWESI BARAT,-2.6833,118.8667",
+    "POLDA KALIMANTAN UTARA,KALIMANTAN UTARA,2.8386,117.3748"
+]
+
+age_type = [
+    "<20",
+    "21-30",
+    "31-40",
+    "41-50",
+    ">51",
+    "unknown"
+]
+
+sex = [
+    "L",
+    "P",
+    "unknown"
+]
+
+data2 = [entry.split(',') for entry in data]
+
+result = []
+
+for i in range(1, 13):
+    for j in range(2022, 2026):
+        if j == 2025 and i > 5:
+            break
+        
+        for k in list_of_jenis_kejahatan:
+            for l in data2:
+                for m in sex:
+                    result.append([i, j, k, l[0], m])
+
+
+result.sort(key=lambda x: (x[1], x[0]))
+
+csv_file_path = 'sex.csv'
+with open(csv_file_path, mode='w', newline='') as file:
+    writer = csv.writer(file, delimiter=',')
+    writer.writerow(["month", "year", "polda", "polda", "sex"])
+    writer.writerows(result)
+
+print(f"Data has been saved to {csv_file_path}")
