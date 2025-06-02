@@ -124,54 +124,69 @@ def create_location_distribution_chart(df):
 
 def create_demographics_charts(df):
     """Create demographic analysis charts"""
+
     # Age distribution
     age_bins = [0, 18, 25, 35, 45, 55, 100]
     age_labels = ['<18', '18-24', '25-34', '35-44', '45-54', '55+']
     df['age_group'] = pd.cut(df['perp_age'], bins=age_bins, labels=age_labels, right=False)
-    
-    age_data = df['age_group'].value_counts().reset_index()
+
+    age_data = df['age_group'].value_counts().reindex(age_labels).reset_index()
     age_data.columns = ['Age Group', 'Count']
-    
+
     fig_age = px.bar(
-        age_data, 
-        x='Age Group', 
+        age_data,
+        x='Age Group',
         y='Count',
         title='Distribusi Usia Pelaku',
         labels={'Count': 'Jumlah Kasus', 'Age Group': 'Kelompok Usia'}
     )
-    
+    fig_age.update_layout(
+        height=400,
+        margin=dict(l=40, r=20, t=50, b=50),
+        template='plotly_dark',
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)'
+    )
+
     # Gender distribution
     gender_data = df['perp_gender'].value_counts().reset_index()
     gender_data.columns = ['Gender', 'Count']
-    
+
     fig_gender = px.pie(
-        gender_data, 
-        values='Count', 
+        gender_data,
+        values='Count',
         names='Gender',
-        title='Distribusi Jenis Kelamin Pelaku'
+        title='Distribusi Jenis Kelamin Pelaku',
+        hole=0.4  # donut style, better readability
     )
-    
-    # Occupation distribution
+    fig_gender.update_layout(
+        height=400,
+        margin=dict(l=20, r=20, t=50, b=50),
+        template='plotly_dark',
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)'
+    )
+
+    # Occupation distribution (Top 10)
     occupation_data = df['perp_occupation'].value_counts().head(10).reset_index()
     occupation_data.columns = ['Occupation', 'Count']
-    
+
     fig_occupation = px.bar(
-        occupation_data, 
-        x='Count', 
+        occupation_data,
+        x='Count',
         y='Occupation',
         orientation='h',
         title='Distribusi Pekerjaan Pelaku (Top 10)',
         labels={'Count': 'Jumlah Kasus', 'Occupation': 'Pekerjaan'}
     )
-    
-    # Apply dark theme
-    for fig in [fig_age, fig_gender, fig_occupation]:
-        fig.update_layout(
-            template='plotly_dark',
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)'
-        )
-    
+    fig_occupation.update_layout(
+        height=400,
+        margin=dict(l=100, r=20, t=50, b=50),
+        template='plotly_dark',
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)'
+    )
+
     return fig_age, fig_gender, fig_occupation
 
 def create_motive_wordcloud(df):
@@ -292,19 +307,39 @@ def main():
     
     # Demographics section
     st.markdown("## 👥 Analisis Demografi Pelaku")
-    
     col1, col2, col3 = st.columns(3)
-    
+
     fig_age, fig_gender, fig_occupation = create_demographics_charts(filtered_df)
-    
+
     with col1:
-        st.plotly_chart(fig_age, use_container_width=True)
-    
+        st.plotly_chart(fig_age, use_container_width=True, key="fig_age_chart")
+
     with col2:
-        st.plotly_chart(fig_gender, use_container_width=True)
-    
+        st.plotly_chart(fig_gender, use_container_width=True,key="fig_gender_chart")
+
     with col3:
-        st.plotly_chart(fig_occupation, use_container_width=True)
+        # For the occupation chart, we'll show top 5 instead of 10 to fit better
+        occupation_data = filtered_df['perp_occupation'].value_counts().head(5).reset_index()
+        occupation_data.columns = ['Occupation', 'Count']
+        
+        fig_occupation_compact = px.bar(
+            occupation_data, 
+            x='Count', 
+            y='Occupation',
+            orientation='h',
+            title='Top 5 Pekerjaan Pelaku',
+            labels={'Count': 'Jumlah Kasus', 'Occupation': 'Pekerjaan'}
+        )
+        
+        fig_occupation_compact.update_layout(
+            height=400,  # Same height as other charts
+            template='plotly_dark',
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            margin=dict(l=100, r=20, t=50, b=50)  # Adjust margins for better fit
+        )
+        
+        st.plotly_chart(fig_occupation_compact, use_container_width=True)
     
     # Motive analysis
     st.markdown("## 🎯 Analisis Motif Kejahatan")
