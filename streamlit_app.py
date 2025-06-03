@@ -17,6 +17,32 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+CRIME_TYPE_MAPPING = {
+    'Curanmor R-2': 'Curanmor R2',
+    'Kejahatan Terkait Senjata Tajam (Sajam) / Premanisme': 'Premanisme',
+    'Kekerasan Dalam Rumah Tangga': 'KDRT',
+    'Manipulasi data autentik secara elektronik (ITE)': 'Manipulasi ITE',
+    'Membahayakan Keamanan Umum Bagi Orang / Barang': 'Keamanan Umum',
+    'Menjual/Edarkan Obat Keras/Bebas Tanpa Izin': 'Obat Ilegal',
+    'Narkotika (Narkoba)': 'Narkoba',
+    'Pemalsuan Surat Otentik': 'Pemalsuan',
+    'Pencurian Biasa': 'Pencurian',
+    'Pencurian Dengan Pemberatan (Curat)': 'Curat',
+    'Pengancaman': 'Pengancaman',
+    'Penganiayaan': 'Penganiayaan',
+    'Pengerusakan': 'Pengerusakan',
+    'Penggelapan': 'Penggelapan',
+    'Penggelapan asal usul': 'Penggelapan',
+    'Pengroyokan': 'Pengroyokan',
+    'Penipuan / Perbuatan Curang': 'Penipuan',
+    'Persetubuhan Terhadap Anak / Cabul Terhadap Anak': 'Pencabulan',
+    'Tindak Pidana Dalam Perlindungan Anak': 'Pidana Anak'
+}
+
+def get_short_crime_name(crime_type):
+    """Convert long crime type names to short versions for UI display"""
+    return CRIME_TYPE_MAPPING.get(crime_type, crime_type)
+
 # Load custom CSS
 def load_css():
     try:
@@ -285,9 +311,13 @@ def create_metrics_cards(filtered_data):
             crime_totals = filtered_data['age'].groupby('crime_type')['count_age'].sum()
             most_common_crime = crime_totals.idxmax() if not crime_totals.empty else "N/A"
             crime_count = crime_totals.max() if not crime_totals.empty else 0
+            
+            short_crime_name = get_short_crime_name(most_common_crime)
+            display_name = short_crime_name[:20] + "..." if len(short_crime_name) > 20 else short_crime_name
+            
             st.metric(
                 label="Kejahatan Terbanyak",
-                value=most_common_crime[:20] + "..." if len(most_common_crime) > 20 else most_common_crime,
+                value=display_name,
                 delta=f"{crime_count:,.0f} kasus"
             )
         else:
@@ -362,7 +392,7 @@ def create_indonesia_crime_map(filtered_data, hide_summary=False):
     }).reset_index()
     polda_stats.columns = ['polda', 'total_cases']
     
-    # Get top 3 crimes for each polda
+    # Get top 3 crimes for each polda - use short names for display
     top_crimes_by_polda = {}
     for polda in polda_stats['polda'].unique():
         polda_crimes = filtered_data['age'][filtered_data['age']['polda'] == polda]
@@ -371,7 +401,8 @@ def create_indonesia_crime_map(filtered_data, hide_summary=False):
         top_crimes_text = []
         for crime, count in top_3.items():
             percentage = (count / polda_crimes['count_age'].sum()) * 100
-            top_crimes_text.append(f"• {crime[:30]}: {count:,.0f} ({percentage:.1f}%)")
+            short_name = get_short_crime_name(crime)
+            top_crimes_text.append(f"• {short_name}: {count:,.0f} ({percentage:.1f}%)")
         top_crimes_by_polda[polda] = '<br>'.join(top_crimes_text)
     
     # Merge with coordinate data
