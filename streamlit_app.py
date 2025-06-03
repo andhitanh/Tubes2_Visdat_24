@@ -335,13 +335,19 @@ def create_indonesia_crime_map(filtered_data, hide_summary=False):
     return fig, summary_table
 
 def create_demographics_charts(filtered_data):
-    """Create demographic analysis charts"""
-    
-    # Age distribution
-    if not filtered_data['age'].empty:
-        age_data = filtered_data['age'].groupby('age')['count_age'].sum().reset_index()
-        age_data.columns = ['Age Group', 'Count']
-        
+    """Create demographic analysis charts (age, gender, occupation) with 'unknown' label converted"""
+
+    # ----- Age Distribution -----
+    if not filtered_data['age'].empty and {'age', 'count_age'}.issubset(filtered_data['age'].columns):
+        age_data = (
+            filtered_data['age']
+            .groupby('age', as_index=False)['count_age']
+            .sum()
+            .rename(columns={'age': 'Age Group', 'count_age': 'Count'})
+        )
+
+        age_data['Age Group'] = age_data['Age Group'].replace({'unknown': 'Tidak Diketahui'})
+
         fig_age = px.bar(
             age_data,
             x='Age Group',
@@ -353,7 +359,7 @@ def create_demographics_charts(filtered_data):
         )
     else:
         fig_age = px.bar(title='Distribusi Usia Pelaku - Tidak ada data')
-    
+
     fig_age.update_layout(
         height=400,
         template='plotly_dark',
@@ -361,38 +367,49 @@ def create_demographics_charts(filtered_data):
         paper_bgcolor='rgba(0,0,0,0)',
         showlegend=False
     )
-    
-    # Gender distribution
-    if not filtered_data['sex'].empty:
-        gender_data = filtered_data['sex'].groupby('sex')['count_sex'].sum().reset_index()
-        gender_data.columns = ['Gender', 'Count']
-        
-        # Map gender codes to readable names
+
+    # ----- Gender Distribution -----
+    if not filtered_data['sex'].empty and {'sex', 'count_sex'}.issubset(filtered_data['sex'].columns):
+        gender_data = (
+            filtered_data['sex']
+            .groupby('sex', as_index=False)['count_sex']
+            .sum()
+            .rename(columns={'sex': 'Gender', 'count_sex': 'Count'})
+        )
+
         gender_mapping = {'L': 'Laki-laki', 'P': 'Perempuan', 'unknown': 'Tidak Diketahui'}
         gender_data['Gender'] = gender_data['Gender'].map(gender_mapping).fillna(gender_data['Gender'])
-        
+
         fig_gender = px.pie(
             gender_data,
             values='Count',
             names='Gender',
             title='Distribusi Jenis Kelamin Pelaku',
-            color_discrete_sequence=['#3182ce', '#4299e1', '#63b3ed']
+            color_discrete_sequence=['#3182ce', '#4299e1', '#a0aec0']
         )
     else:
         fig_gender = px.pie(title='Distribusi Jenis Kelamin Pelaku - Tidak ada data')
-    
+
     fig_gender.update_layout(
         height=400,
         template='plotly_dark',
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)'
     )
-    
-    # Occupation distribution
-    if not filtered_data['occupation'].empty:
-        occupation_data = filtered_data['occupation'].groupby('occupation')['count_occupation'].sum().sort_values(ascending=False).head(10).reset_index()
-        occupation_data.columns = ['Occupation', 'Count']
-        
+
+    # ----- Occupation Distribution -----
+    if not filtered_data['occupation'].empty and {'occupation', 'count_occupation'}.issubset(filtered_data['occupation'].columns):
+        occupation_data = (
+            filtered_data['occupation']
+            .groupby('occupation', as_index=False)['count_occupation']
+            .sum()
+            .sort_values('count_occupation', ascending=False)
+            .head(10)
+            .rename(columns={'occupation': 'Occupation', 'count_occupation': 'Count'})
+        )
+
+        occupation_data['Occupation'] = occupation_data['Occupation'].replace({'unknown': 'Tidak Diketahui'})
+
         fig_occupation = px.bar(
             occupation_data,
             x='Count',
@@ -405,7 +422,7 @@ def create_demographics_charts(filtered_data):
         )
     else:
         fig_occupation = px.bar(title='Top 10 Pekerjaan Pelaku - Tidak ada data')
-    
+
     fig_occupation.update_layout(
         height=400,
         template='plotly_dark',
@@ -414,7 +431,7 @@ def create_demographics_charts(filtered_data):
         showlegend=False,
         yaxis={'categoryorder': 'total ascending'}
     )
-    
+
     return fig_age, fig_gender, fig_occupation
 
 def create_motive_wordcloud(filtered_data):
