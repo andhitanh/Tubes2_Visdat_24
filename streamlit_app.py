@@ -516,7 +516,7 @@ def main():
     st.sidebar.title("Filter Data")
     
     # Date range slider
-    st.sidebar.markdown("### Rentang Waktu")
+    # st.sidebar.markdown("### Rentang Waktu")
     
     # Create list of all available months
     def get_month_year_options(min_date, max_date):
@@ -544,7 +544,7 @@ def main():
     # Double-sided select_slider
     if len(month_options) > 1:
         idx_range = st.sidebar.select_slider(
-            "Pilih Rentang Kejadian",
+            "Rentang Waktu Kejadian",
             options=list(range(len(month_options))),
             value=(0, len(month_options) - 1),
             format_func=lambda x: month_options[x][2]
@@ -566,32 +566,34 @@ def main():
         end_date = max_date
     
     # Location filters
-    st.sidebar.markdown("### Filter Lokasi")
+    # st.sidebar.markdown("### Lokasi")
     
     # Province filter
     provinces = ['Semua'] + sorted(data['polda']['province'].unique().tolist())
-    selected_province = st.sidebar.selectbox("Pilih Provinsi", provinces)
+    selected_province = st.sidebar.selectbox("Lokasi", provinces)
+
+    selected_polda = selected_province
     
-    # Polda filter (conditional based on province selection)
-    if selected_province != 'Semua':
-        available_poldas = data['polda'][data['polda']['province'] == selected_province]['polda'].tolist()
-        poldas = ['Semua'] + sorted(available_poldas)
-        selected_polda = st.sidebar.selectbox("Pilih Polda", poldas)
-    else:
-        poldas = ['Semua'] + sorted(data['polda']['polda'].unique().tolist())
-        selected_polda = st.sidebar.selectbox("Pilih Polda", poldas)
+    # # Polda filter (conditional based on province selection)
+    # if selected_province != 'Semua':
+    #     available_poldas = data['polda'][data['polda']['province'] == selected_province]['polda'].tolist()
+    #     poldas = ['Semua'] + sorted(available_poldas)
+    #     selected_polda = st.sidebar.selectbox("Pilih Polda", poldas)
+    # else:
+    #     poldas = ['Semua'] + sorted(data['polda']['polda'].unique().tolist())
+    #     selected_polda = st.sidebar.selectbox("Pilih Polda", poldas)
     
     # Crime type filter
-    st.sidebar.markdown("### Filter Jenis Kejahatan")
+    # st.sidebar.markdown("### Filter Jenis Kejahatan")
     all_crime_types = []
     if not data['age'].empty:
         all_crime_types = sorted(data['age']['crime_type'].unique().tolist())
     
     if all_crime_types:
         selected_crimes = st.sidebar.multiselect(
-            "Pilih Jenis Kejahatan",
+            "Jenis Kejahatan",
             all_crime_types,
-            default=all_crime_types[:5] if len(all_crime_types) >= 5 else all_crime_types
+            # default=all_crime_types[:5] if len(all_crime_types) >= 5 else all_crime_types
         )
     else:
         selected_crimes = []
