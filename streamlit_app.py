@@ -19,182 +19,214 @@ st.set_page_config(
 
 # Load custom CSS
 def load_css():
-    with open('style.css') as f:
-        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
-
-# Load and cache data
-@st.cache_data
-def load_data():
-    """Load and preprocess crime data"""
     try:
-        df = pd.read_csv('crime_data.csv')
-        df['date'] = pd.to_datetime(df['date'])
-        df['year'] = df['date'].dt.year
-        df['month'] = df['date'].dt.month
-        df['year_month'] = df['date'].dt.to_period('M')
-        return df
+        with open('style.css') as f:
+            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
     except FileNotFoundError:
-        st.error("Crime data file not found. Please ensure 'crime_data.csv' exists.")
-        return pd.DataFrame()
+        pass  # CSS file is optional
 
 @st.cache_data
-def load_polda_data():
-    """Load police headquarters location data"""
-    try:
-        polda_df = pd.read_csv('data_polda.csv')
-        return polda_df
-    except FileNotFoundError:
-        st.error("Polda data file not found. Using fallback coordinates.")
-        # Fallback data if file not found
-        return pd.DataFrame({
-            'province': ['DKI JAKARTA', 'JAWA BARAT', 'JAWA TIMUR'],
-            'latitude': [-6.2214, -6.9386, -7.322222],
-            'longitude': [106.8098, 107.7033, 112.730757]
-        })
+def load_all_data():
+    """Load all CSV files and return as dictionary"""
+    data_files = {
+        'polda': 'data/data_polda.csv',
+        'age': 'data/age.csv',
+        'sex': 'data/sex.csv',
+        'occupation': 'data/occupation.csv',
+        'location': 'data/location.csv',
+        'time': 'data/time.csv',
+        'status': 'data/status.csv',
+        'motive': 'data/motive.csv'
+    }
+    
+    data = {}
+    for key, file_path in data_files.items():
+        try:
+            df = pd.read_csv(file_path)
+            data[key] = df
+        except FileNotFoundError:
+            st.error(f"File not found: {file_path}")
+            data[key] = pd.DataFrame()
+    
+    return data
 
-def create_metrics_cards(df):
+def get_date_range(data):
+    """Get the min and max date range from all data"""
+    all_dates = []
+    
+    for key in ['age', 'sex', 'occupation', 'location', 'time', 'status', 'motive']:
+        if not data[key].empty and 'year' in data[key].columns and 'month' in data[key].columns:
+            df = data[key]
+            # Create datetime from year and month
+            df_dates = pd.to_datetime(df[['year', 'month']].assign(day=1))
+            all_dates.extend(df_dates.tolist())
+    
+    if all_dates:
+        return min(all_dates), max(all_dates)
+    else:
+        # Fallback dates
+        return datetime(2022, 1, 1), datetime(2024, 12, 1)
+
+def filter_data_by_date_and_location(data, start_date, end_date, selected_province=None, selected_polda=None):
+    """Filter all datasets by date range and location"""
+    filtered_data = {}
+    
+    for key in ['age', 'sex', 'occupation', 'location', 'time', 'status', 'motive']:
+        if data[key].empty:
+            filtered_data[key] = pd.DataFrame()
+            continue
+            
+        df = data[key].copy()
+        
+        # Filter by date range - improved logic
+        mask = (
+            (df['year'] > start_date.year) | 
+            ((df['year'] == start_date.year) & (df['month'] >= start_date.month))
+        ) & (
+            (df['year'] < end_date.year) | 
+            ((df['year'] == end_date.year) & (df['month'] <= end_date.month))
+        )
+        
+        df = df[mask]
+        
+        # Filter by location if specified
+        if selected_polda and selected_polda != 'Semua':
+            df = df[df['polda'] == selected_polda]
+        elif selected_province and selected_province != 'Semua':
+            # Get polda list for the selected province
+            if not data['polda'].empty:
+                province_poldas = data['polda'][data['polda']['province'] == selected_province]['polda'].tolist()
+                df = df[df['polda'].isin(province_poldas)]
+        
+        filtered_data[key] = df
+    
+    # Also filter polda data for consistency
+    filtered_data['polda'] = data['polda'].copy()
+    if selected_province and selected_province != 'Semua':
+        filtered_data['polda'] = data['polda'][data['polda']['province'] == selected_province]
+    
+    return filtered_data
+
+def create_metrics_cards(filtered_data):
     """Create top metrics cards"""
     col1, col2, col3, col4 = st.columns(4)
     
+    # Calculate total cases from any dataset (using age as reference)
+    total_cases = filtered_data['age']['count_age'].sum() if not filtered_data['age'].empty else 0
+    
     with col1:
-        total_cases = len(df)
         st.metric(
             label="Total Kasus",
-            value=f"{total_cases:,}",
-            delta=f"+{len(df[df['year'] == df['year'].max()]):,} (2024)"
+            value=f"{total_cases:,.0f}",
+            delta="Berdasarkan data terpilih"
         )
     
     with col2:
-        most_common_crime = df['crime_type'].mode()[0] if not df.empty else "N/A"
-        crime_count = df['crime_type'].value_counts().iloc[0] if not df.empty else 0
-        st.metric(
-            label="Kejahatan Terbanyak",
-            value=most_common_crime,
-            delta=f"{crime_count:,} kasus"
-        )
+        if not filtered_data['age'].empty:
+            # Most common crime type
+            crime_totals = filtered_data['age'].groupby('crime_type')['count_age'].sum()
+            most_common_crime = crime_totals.idxmax() if not crime_totals.empty else "N/A"
+            crime_count = crime_totals.max() if not crime_totals.empty else 0
+            st.metric(
+                label="Kejahatan Terbanyak",
+                value=most_common_crime[:20] + "..." if len(most_common_crime) > 20 else most_common_crime,
+                delta=f"{crime_count:,.0f} kasus"
+            )
+        else:
+            st.metric(label="Kejahatan Terbanyak", value="N/A", delta="0 kasus")
     
     with col3:
-        ongoing_cases = len(df[df['status'] == 'Dalam Proses'])
-        st.metric(
-            label="Kasus Sedang Ditangani",
-            value=f"{ongoing_cases:,}",
-            delta=f"{(ongoing_cases/total_cases*100):.1f}%" if total_cases > 0 else "0%"
-        )
+        if not filtered_data['status'].empty:
+            ongoing_cases = filtered_data['status'][filtered_data['status']['status'] == 'Dalam Proses']['count_status'].sum()
+            total_status_cases = filtered_data['status']['count_status'].sum()
+            percentage = (ongoing_cases/total_status_cases*100) if total_status_cases > 0 else 0
+            st.metric(
+                label="Kasus Sedang Ditangani",
+                value=f"{ongoing_cases:,.0f}",
+                delta=f"{percentage:.1f}%"
+            )
+        else:
+            st.metric(label="Kasus Sedang Ditangani", value="N/A", delta="0%")
     
     with col4:
-        resolved_cases = len(df[df['status'] == 'Selesai'])
-        resolution_rate = (resolved_cases/total_cases*100) if total_cases > 0 else 0
-        st.metric(
-            label="Tingkat Penyelesaian",
-            value=f"{resolution_rate:.1f}%",
-            delta=f"{resolved_cases:,} kasus"
-        )
+        if not filtered_data['status'].empty:
+            resolved_cases = filtered_data['status'][filtered_data['status']['status'] == 'Selesai']['count_status'].sum()
+            total_status_cases = filtered_data['status']['count_status'].sum()
+            resolution_rate = (resolved_cases/total_status_cases*100) if total_status_cases > 0 else 0
+            st.metric(
+                label="Tingkat Penyelesaian",
+                value=f"{resolution_rate:.1f}%",
+                delta=f"{resolved_cases:,.0f} kasus"
+            )
+        else:
+            st.metric(label="Tingkat Penyelesaian", value="0%", delta="0 kasus")
 
-def prepare_map_data(df):
-    """Prepare data for map visualization with detailed analytics"""
-    # Load polda coordinates
-    polda_df = load_polda_data()
-    
-    # Aggregate crime data by province
-    province_stats = []
-    
-    for province in df['location'].unique():
-        province_data = df[df['location'] == province]
-        
-        if len(province_data) == 0:
-            continue
-            
-        # Basic stats
-        total_cases = len(province_data)
-        
-        # Top 3 crime types
-        crime_counts = province_data['crime_type'].value_counts()
-        top_3_crimes = crime_counts.head(3)
-        top_crimes_text = []
-        for crime, count in top_3_crimes.items():
-            percentage = (count / total_cases) * 100
-            top_crimes_text.append(f"• {crime}: {count} ({percentage:.1f}%)")
-        
-        # Time analysis - assuming you have a 'time' or 'hour' column in your data
-        if 'time' in province_data.columns:
-            # Convert time to hour if it's in time format
-            province_data['hour'] = pd.to_datetime(province_data['time']).dt.hour
-        elif 'hour' in province_data.columns:
-            # Use existing hour column
-            pass
-        else:
-            # Create dummy hour data for demonstration
-            province_data = province_data.copy()
-            province_data['hour'] = np.random.randint(0, 24, len(province_data))
-        
-        # Determine peak time range
-        hour_counts = province_data['hour'].value_counts()
-        peak_hours = hour_counts.nlargest(8).index.tolist()  # Top 8 hours
-        peak_hours.sort()
-        
-        if len(peak_hours) > 0:
-            time_range = f"{min(peak_hours):02d}:00–{max(peak_hours):02d}:59"
-        else:
-            time_range = "Data tidak tersedia"
-        
-        # Most common location type
-        if 'location_type' in province_data.columns:
-            most_common_location = province_data['location_type'].mode()[0]
-            location_counts = province_data['location_type'].value_counts()
-            location_percentage = (location_counts.iloc[0] / total_cases) * 100
-            typical_location = f"{most_common_location} ({location_percentage:.1f}%)"
-        else:
-            # Create dummy location data for demonstration
-            locations = ['Rumah', 'Jalan Umum', 'Area Perkantoran', 'Pusat Perbelanjaan', 'Tempat Umum']
-            province_data = province_data.copy()
-            province_data['location_type'] = np.random.choice(locations, len(province_data))
-            most_common_location = province_data['location_type'].mode()[0]
-            typical_location = most_common_location
-        
-        # Get coordinates from polda data
-        polda_match = polda_df[polda_df['province'] == province]
-        if not polda_match.empty:
-            lat = polda_match.iloc[0]['latitude']
-            lon = polda_match.iloc[0]['longitude']
-        else:
-            # Default coordinates for Indonesia center if not found
-            lat = -0.7893
-            lon = 113.9213
-        
-        province_stats.append({
-            'province': province,
-            'total_cases': total_cases,
-            'latitude': lat,
-            'longitude': lon,
-            'top_3_crimes': '<br>'.join(top_crimes_text),
-            'time_range': time_range,
-            'typical_location': typical_location,
-            'cases_per_100k': total_cases  # You can adjust this with real population data
-        })
-    
-    return pd.DataFrame(province_stats)
-
-def create_indonesia_crime_map(df):
-    """Create interactive choropleth map of Indonesia crime data"""
-    
-    # Prepare map data
-    map_data = prepare_map_data(df)
-    
-    if map_data.empty:
-        st.warning("Tidak ada data untuk ditampilkan pada peta")
+def create_time_series_chart(filtered_data):
+    """Create time series chart from filtered data"""
+    if filtered_data['age'].empty:
         return None
+    
+    # Aggregate data by month/year
+    df = filtered_data['age'].copy()
+    monthly_data = df.groupby(['year', 'month'])['count_age'].sum().reset_index()
+    monthly_data['date'] = pd.to_datetime(monthly_data[['year', 'month']].assign(day=1))
+    monthly_data = monthly_data.sort_values('date')
+    
+    fig = px.line(
+        monthly_data,
+        x='date',
+        y='count_age',
+        title='Tren Bulanan Kejahatan',
+        labels={'date': 'Tanggal', 'count_age': 'Jumlah Kasus'}
+    )
+    
+    fig.update_layout(
+        height=400,
+        template='plotly_dark',
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)'
+    )
+    
+    return fig
+
+def create_indonesia_crime_map(filtered_data, hide_summary=False):
+    """Create interactive map of Indonesia crime data"""
+    if filtered_data['age'].empty or filtered_data['polda'].empty:
+        st.warning("Tidak ada data untuk ditampilkan pada peta")
+        return None, None
+    
+    # Aggregate crime data by polda
+    polda_stats = filtered_data['age'].groupby('polda').agg({
+        'count_age': 'sum'
+    }).reset_index()
+    polda_stats.columns = ['polda', 'total_cases']
+    
+    # Get top 3 crimes for each polda
+    top_crimes_by_polda = {}
+    for polda in polda_stats['polda'].unique():
+        polda_crimes = filtered_data['age'][filtered_data['age']['polda'] == polda]
+        crime_totals = polda_crimes.groupby('crime_type')['count_age'].sum().sort_values(ascending=False)
+        top_3 = crime_totals.head(3)
+        top_crimes_text = []
+        for crime, count in top_3.items():
+            percentage = (count / polda_crimes['count_age'].sum()) * 100
+            top_crimes_text.append(f"• {crime[:30]}: {count:,.0f} ({percentage:.1f}%)")
+        top_crimes_by_polda[polda] = '<br>'.join(top_crimes_text)
+    
+    # Merge with coordinate data
+    map_data = pd.merge(polda_stats, filtered_data['polda'], on='polda', how='left')
+    map_data['top_3_crimes'] = map_data['polda'].map(top_crimes_by_polda)
     
     # Create the map
     fig = go.Figure()
     
-    # Add scatter plot with sized circles for each province
     fig.add_trace(go.Scattergeo(
         lon=map_data['longitude'],
         lat=map_data['latitude'],
-        text=map_data['province'],
+        text=map_data['polda'],
         mode='markers',
         marker=dict(
-            size=map_data['total_cases'] / 10,  # Scale marker size
+            size=np.sqrt(map_data['total_cases']) / 5,  # Scale marker size
             sizemin=8,
             color=map_data['total_cases'],
             colorscale='Reds',
@@ -210,27 +242,25 @@ def create_indonesia_crime_map(df):
         ),
         hovertemplate=
         "<b>%{text}</b><br>" +
-        "<b>Total Kasus:</b> %{customdata[0]:,}<br>" +
-        "<b>3 Kejahatan Teratas:</b><br>%{customdata[1]}<br>" +
-        "<b>Waktu Puncak:</b> %{customdata[2]}<br>" +
-        "<b>Lokasi Paling Umum:</b> %{customdata[3]}<br>" +
+        "<b>Provinsi:</b> %{customdata[0]}<br>" +
+        "<b>Total Kasus:</b> %{customdata[1]:,}<br>" +
+        "<b>3 Kejahatan Teratas:</b><br>%{customdata[2]}<br>" +
         "<extra></extra>",
         customdata=list(zip(
+            map_data['province'],
             map_data['total_cases'],
-            map_data['top_3_crimes'],
-            map_data['time_range'],
-            map_data['typical_location']
+            map_data['top_3_crimes']
         )),
         name=""
     ))
     
     # Update layout for Indonesia focus
     fig.update_layout(
-        title={
-            'text': 'Peta Distribusi Kejahatan di Indonesia',
-            'x': 0.5,
-            'font': {'size': 20, 'color': 'white'}
-        },
+        # title={
+        #     'text': 'Peta Distribusi Kejahatan di Indonesia',
+        #     'x': 0.5,
+        #     'font': {'size': 20, 'color': 'white'}
+        # },
         geo=dict(
             projection_type='natural earth',
             showland=True,
@@ -239,14 +269,11 @@ def create_indonesia_crime_map(df):
             oceancolor='rgb(20, 20, 30)',
             showlakes=True,
             lakecolor='rgb(20, 20, 30)',
-            showrivers=True,
-            rivercolor='rgb(20, 20, 30)',
             showcountries=True,
             countrycolor='rgb(60, 60, 60)',
-            countrywidth=1,
-            center=dict(lat=-2.5, lon=118),  # Center on Indonesia
-            lonaxis=dict(range=[95, 141]),   # Indonesia longitude range
-            lataxis=dict(range=[-11, 6]),    # Indonesia latitude range
+            center=dict(lat=-2.5, lon=118),
+            lonaxis=dict(range=[95, 141]),
+            lataxis=dict(range=[-11, 6]),
             bgcolor='rgba(0,0,0,0)'
         ),
         height=600,
@@ -256,272 +283,341 @@ def create_indonesia_crime_map(df):
         font=dict(color='white')
     )
     
-    return fig
+    # Create summary table (only if not hiding)
+    summary_table = None
+    if not hide_summary and 'province' in map_data.columns:
+        # Get province-level statistics
+        province_summary = map_data.groupby('province')['total_cases'].sum().sort_values(ascending=False).reset_index()
+        province_summary.columns = ['Provinsi', 'Total Kasus']
+        province_summary['Total Kasus'] = province_summary['Total Kasus'].apply(lambda x: f"{x:,.0f}")
+        summary_table = province_summary.head(10)
+    
+    return fig, summary_table
 
-def create_province_summary_table(df):
-    """Create a summary table alongside the map"""
-    map_data = prepare_map_data(df)
-    
-    if map_data.empty:
-        return None
-    
-    # Sort by total cases
-    map_data = map_data.sort_values('total_cases', ascending=False)
-    
-    # Create a styled table
-    table_data = []
-    for _, row in map_data.head(10).iterrows():  # Top 10 provinces
-        table_data.append({
-            'Provinsi': row['province'],
-            'Total Kasus': f"{row['total_cases']:,}",
-            'Waktu Puncak': row['time_range'],
-            'Lokasi Umum': row['typical_location']
-        })
-    
-    return pd.DataFrame(table_data)
-
-def create_location_distribution_section(df):
-    """Enhanced location distribution with map and summary"""
-    
-    st.markdown("## 🗺️ Distribusi Kejahatan per Provinsi")
-    
-    # Create two columns: map and summary
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        # Display the interactive map
-        map_fig = create_indonesia_crime_map(df)
-        if map_fig:
-            st.plotly_chart(map_fig, use_container_width=True)
-        else:
-            st.error("Gagal membuat peta. Periksa data koordinat provinsi.")
-    
-    with col2:
-        st.markdown("### 📊 Top 10 Provinsi")
-        summary_table = create_province_summary_table(df)
-        if summary_table is not None:
-            st.dataframe(
-                summary_table,
-                use_container_width=True,
-                hide_index=True
-            )
-            
-            # Add some key insights
-            st.markdown("### 🔍 Insights Cepat")
-            map_data = prepare_map_data(df)
-            if not map_data.empty:
-                highest_crime = map_data.loc[map_data['total_cases'].idxmax()]
-                st.info(f"📍 **Provinsi dengan kasus terbanyak:** {highest_crime['province']} ({highest_crime['total_cases']:,} kasus)")
-                
-                avg_cases = map_data['total_cases'].mean()
-                st.info(f"📊 **Rata-rata kasus per provinsi:** {avg_cases:.0f}")
-        else:
-            st.warning("Data tidak tersedia untuk tabel ringkasan")
-
-def create_demographics_charts(df):
-    """Create demographic analysis charts with consistent heights"""
+def create_demographics_charts(filtered_data):
+    """Create demographic analysis charts"""
     
     # Age distribution
-    age_bins = [0, 18, 25, 35, 45, 55, 100]
-    age_labels = ['<18', '18-24', '25-34', '35-44', '45-54', '55+']
-    df['age_group'] = pd.cut(df['perp_age'], bins=age_bins, labels=age_labels, right=False)
-    
-    age_data = df['age_group'].value_counts().reset_index()
-    age_data.columns = ['Age Group', 'Count']
-    
-    fig_age = px.bar(
-        age_data, 
-        x='Age Group', 
-        y='Count',
-        title='Distribusi Usia Pelaku',
-        labels={'Count': 'Jumlah Kasus', 'Age Group': 'Kelompok Usia'},
-        color='Count',
-        color_continuous_scale='Blues'
-    )
+    if not filtered_data['age'].empty:
+        age_data = filtered_data['age'].groupby('age')['count_age'].sum().reset_index()
+        age_data.columns = ['Age Group', 'Count']
+        
+        fig_age = px.bar(
+            age_data,
+            x='Age Group',
+            y='Count',
+            title='Distribusi Usia Pelaku',
+            labels={'Count': 'Jumlah Kasus', 'Age Group': 'Kelompok Usia'},
+            color='Count',
+            color_continuous_scale='Blues'
+        )
+    else:
+        fig_age = px.bar(title='Distribusi Usia Pelaku - Tidak ada data')
     
     fig_age.update_layout(
-        height=400,  # Fixed height
+        height=400,
         template='plotly_dark',
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
-        showlegend=False,
-        margin=dict(l=50, r=50, t=80, b=50)
+        showlegend=False
     )
     
     # Gender distribution
-    gender_data = df['perp_gender'].value_counts().reset_index()
-    gender_data.columns = ['Gender', 'Count']
-    
-    fig_gender = px.pie(
-        gender_data, 
-        values='Count', 
-        names='Gender',
-        title='Distribusi Jenis Kelamin Pelaku',
-        color_discrete_sequence=['#3182ce', '#4299e1', '#63b3ed']
-    )
+    if not filtered_data['sex'].empty:
+        gender_data = filtered_data['sex'].groupby('sex')['count_sex'].sum().reset_index()
+        gender_data.columns = ['Gender', 'Count']
+        
+        # Map gender codes to readable names
+        gender_mapping = {'L': 'Laki-laki', 'P': 'Perempuan', 'unknown': 'Tidak Diketahui'}
+        gender_data['Gender'] = gender_data['Gender'].map(gender_mapping).fillna(gender_data['Gender'])
+        
+        fig_gender = px.pie(
+            gender_data,
+            values='Count',
+            names='Gender',
+            title='Distribusi Jenis Kelamin Pelaku',
+            color_discrete_sequence=['#3182ce', '#4299e1', '#63b3ed']
+        )
+    else:
+        fig_gender = px.pie(title='Distribusi Jenis Kelamin Pelaku - Tidak ada data')
     
     fig_gender.update_layout(
-        height=400,  # Fixed height
-        template='plotly_dark',
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=50, r=50, t=80, b=50)
-    )
-    
-    # Occupation distribution
-    occupation_data = df['perp_occupation'].value_counts().head(8).reset_index()  # Reduced to 8 for better fit
-    occupation_data.columns = ['Occupation', 'Count']
-    
-    fig_occupation = px.bar(
-        occupation_data, 
-        x='Count', 
-        y='Occupation',
-        orientation='h',
-        title='Top 8 Pekerjaan Pelaku',
-        labels={'Count': 'Jumlah Kasus', 'Occupation': 'Pekerjaan'},
-        color='Count',
-        color_continuous_scale='Blues'
-    )
-    
-    fig_occupation.update_layout(
-        height=400,  # Fixed height
-        template='plotly_dark',
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)',
-        showlegend=False,
-        margin=dict(l=120, r=50, t=80, b=50),  # More left margin for occupation names
-        yaxis={'categoryorder': 'total ascending'}  # Sort bars by value
-    )
-    
-    return fig_age, fig_gender, fig_occupation
-
-def create_motive_wordcloud(df):
-    """Create word cloud for crime motives"""
-    motive_text = ' '.join(df['motive'].tolist())
-    
-    # Create word cloud
-    wordcloud = WordCloud(
-        width=800, 
-        height=400, 
-        background_color='black',
-        colormap='Blues',
-        max_words=50
-    ).generate(motive_text)
-    
-    # Create matplotlib figure
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.imshow(wordcloud, interpolation='bilinear')
-    ax.axis('off')
-    ax.set_title('Motif Kejahatan', color='white', fontsize=16, pad=20)
-    fig.patch.set_facecolor('black')
-    
-    return fig
-
-def create_time_series_chart(df):
-    """Create detailed time series analysis"""
-    daily_data = df.groupby(df['date'].dt.date).size().reset_index(name='count')
-    daily_data.columns = ['date', 'count']
-    
-    fig = px.line(
-        daily_data, 
-        x='date', 
-        y='count',
-        title='Tren Harian Kejahatan',
-        labels={'date': 'Tanggal', 'count': 'Jumlah Kasus'}
-    )
-    
-    fig.update_layout(
         height=400,
         template='plotly_dark',
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)'
     )
     
-    return fig
+    # Occupation distribution
+    if not filtered_data['occupation'].empty:
+        occupation_data = filtered_data['occupation'].groupby('occupation')['count_occupation'].sum().sort_values(ascending=False).head(10).reset_index()
+        occupation_data.columns = ['Occupation', 'Count']
+        
+        fig_occupation = px.bar(
+            occupation_data,
+            x='Count',
+            y='Occupation',
+            orientation='h',
+            title='Top 10 Pekerjaan Pelaku',
+            labels={'Count': 'Jumlah Kasus', 'Occupation': 'Pekerjaan'},
+            color='Count',
+            color_continuous_scale='Blues'
+        )
+    else:
+        fig_occupation = px.bar(title='Top 10 Pekerjaan Pelaku - Tidak ada data')
+    
+    fig_occupation.update_layout(
+        height=400,
+        template='plotly_dark',
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        showlegend=False,
+        yaxis={'categoryorder': 'total ascending'}
+    )
+    
+    return fig_age, fig_gender, fig_occupation
+
+def create_motive_wordcloud(filtered_data):
+    """Create word cloud and bar chart for crime motives"""
+    if filtered_data['motive'].empty:
+        return None, None
+    
+    motive_data = filtered_data['motive'].groupby('motive')['count_motive'].sum().sort_values(ascending=False)
+    
+    # Create bar chart as primary visualization
+    motive_df = motive_data.head(10).reset_index()
+    motive_df.columns = ['Motive', 'Count']
+    
+    fig_motive = px.bar(
+        motive_df,
+        x='Count',
+        y='Motive',
+        orientation='h',
+        title='Top 10 Motif Kejahatan',
+        labels={'Count': 'Jumlah Kasus', 'Motive': 'Motif'},
+        color='Count',
+        color_continuous_scale='Reds'
+    )
+    
+    fig_motive.update_layout(
+        height=400,
+        template='plotly_dark',
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        showlegend=False,
+        yaxis={'categoryorder': 'total ascending'}
+    )
+    
+    # Try to create word cloud
+    wordcloud_fig = None
+    try:
+        # Create text from motives weighted by count
+        motive_text = []
+        for motive, count in motive_data.items():
+            # Repeat each motive based on its frequency (scaled down)
+            repeat_count = max(1, int(count / motive_data.sum() * 100))
+            motive_text.extend([motive] * repeat_count)
+        
+        motive_text_str = ' '.join(motive_text)
+        
+        wordcloud = WordCloud(
+            width=800,
+            height=400,
+            background_color='black',
+            colormap='Reds',
+            max_words=50,
+            relative_scaling=0.5
+        ).generate(motive_text_str)
+        
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.imshow(wordcloud, interpolation='bilinear')
+        ax.axis('off')
+        ax.set_title('Word Cloud Motif Kejahatan', color='white', fontsize=16, pad=20)
+        fig.patch.set_facecolor('black')
+        wordcloud_fig = fig
+    except Exception as e:
+        st.error(f"Error creating word cloud: {e}")
+    
+    return fig_motive, wordcloud_fig
 
 def main():
     # Load CSS
-    try:
-        load_css()
-    except FileNotFoundError:
-        pass  # CSS file is optional
+    load_css()
     
-    # Load data
-    df = load_data()
+    # Load all data
+    data = load_all_data()
     
-    if df.empty:
+    # Check if essential data is loaded
+    if data['polda'].empty:
+        st.error("Polda data is required but not found!")
         st.stop()
+    
+    # Get date range
+    min_date, max_date = get_date_range(data)
     
     # Sidebar filters
     st.sidebar.title("🔍 Filter Data")
     
-    # Date range filter
-    min_date = df['date'].min().date()
-    max_date = df['date'].max().date()
+    # Date range slider
+    st.sidebar.markdown("### 📅 Rentang Waktu")
     
-    date_range = st.sidebar.date_input(
-        "Pilih Rentang Tanggal",
-        value=(min_date, max_date),
-        min_value=min_date,
-        max_value=max_date
-    )
+    # Create list of all available months
+    def get_month_year_options(min_date, max_date):
+        """Generate list of (year, month) tuples and their display names"""
+        options = []
+        current = min_date
+        
+        while current <= max_date:
+            month_name = current.strftime("%b %Y")
+            options.append((current.year, current.month, month_name))
+            
+            # Move to next month
+            if current.month == 12:
+                current = current.replace(year=current.year + 1, month=1)
+            else:
+                current = current.replace(month=current.month + 1)
+        
+        return options
     
-    # Location filter
-    locations = ['Semua'] + sorted(df['location'].unique().tolist())
-    selected_location = st.sidebar.selectbox("Pilih Provinsi", locations)
+    month_options = get_month_year_options(min_date, max_date)
+    
+    # Create slider with month/year options
+    month_labels = [opt[2] for opt in month_options]
+
+    # Double-sided select_slider
+    if len(month_options) > 1:
+        idx_range = st.sidebar.select_slider(
+            "Pilih rentang bulan/tahun:",
+            options=list(range(len(month_options))),
+            value=(0, len(month_options) - 1),
+            format_func=lambda x: month_options[x][2]
+        )
+
+        start_idx, end_idx = idx_range
+
+        # Ensure order
+        if start_idx > end_idx:
+            start_idx, end_idx = end_idx, start_idx
+
+        start_year, start_month, _ = month_options[start_idx]
+        end_year, end_month, _ = month_options[end_idx]
+
+        start_date = datetime(start_year, start_month, 1)
+        end_date = datetime(end_year, end_month, 1)
+    else:
+        start_date = min_date
+        end_date = max_date
+    
+    # Location filters
+    st.sidebar.markdown("### 🗺️ Filter Lokasi")
+    
+    # Province filter
+    provinces = ['Semua'] + sorted(data['polda']['province'].unique().tolist())
+    selected_province = st.sidebar.selectbox("Pilih Provinsi", provinces)
+    
+    # Polda filter (conditional based on province selection)
+    if selected_province != 'Semua':
+        available_poldas = data['polda'][data['polda']['province'] == selected_province]['polda'].tolist()
+        poldas = ['Semua'] + sorted(available_poldas)
+        selected_polda = st.sidebar.selectbox("Pilih Polda", poldas)
+    else:
+        poldas = ['Semua'] + sorted(data['polda']['polda'].unique().tolist())
+        selected_polda = st.sidebar.selectbox("Pilih Polda", poldas)
     
     # Crime type filter
-    crime_types = df['crime_type'].unique().tolist()
-    selected_crimes = st.sidebar.multiselect(
-        "Pilih Jenis Kejahatan",
-        crime_types,
-        default=crime_types[:5]  # Default to top 5
-    )
+    st.sidebar.markdown("### 🚔 Filter Jenis Kejahatan")
+    all_crime_types = []
+    if not data['age'].empty:
+        all_crime_types = sorted(data['age']['crime_type'].unique().tolist())
+    
+    if all_crime_types:
+        selected_crimes = st.sidebar.multiselect(
+            "Pilih Jenis Kejahatan",
+            all_crime_types,
+            default=all_crime_types[:5] if len(all_crime_types) >= 5 else all_crime_types
+        )
+    else:
+        selected_crimes = []
     
     # Apply filters
-    filtered_df = df.copy()
+    filtered_data = filter_data_by_date_and_location(
+        data, start_date, end_date, selected_province, selected_polda
+    )
     
-    # Date filter
-    if len(date_range) == 2:
-        start_date, end_date = date_range
-        filtered_df = filtered_df[
-            (filtered_df['date'].dt.date >= start_date) & 
-            (filtered_df['date'].dt.date <= end_date)
-        ]
-    
-    # Location filter
-    if selected_location != 'Semua':
-        filtered_df = filtered_df[filtered_df['location'] == selected_location]
-    
-    # Crime type filter
+    # Further filter by crime type
     if selected_crimes:
-        filtered_df = filtered_df[filtered_df['crime_type'].isin(selected_crimes)]
+        for key in ['age', 'sex', 'occupation', 'location', 'time', 'status', 'motive']:
+            if not filtered_data[key].empty and 'crime_type' in filtered_data[key].columns:
+                filtered_data[key] = filtered_data[key][filtered_data[key]['crime_type'].isin(selected_crimes)]
     
     # Main dashboard
     st.title("🚔 Dashboard Data Kejahatan Indonesia")
+    st.markdown(f"**Periode:** {start_date.strftime('%B %Y')} - {end_date.strftime('%B %Y')}")
+    if selected_province != 'Semua':
+        st.markdown(f"**Provinsi:** {selected_province}")
+    if selected_polda != 'Semua':
+        st.markdown(f"**Polda:** {selected_polda}")
     st.markdown("---")
     
     # Metrics cards
-    create_metrics_cards(filtered_df)
+    create_metrics_cards(filtered_data)
     st.markdown("---")
     
     # Time series analysis
     st.markdown("## 📈 Analisis Tren Waktu")
-    st.plotly_chart(create_time_series_chart(filtered_df), use_container_width=True)
+    time_fig = create_time_series_chart(filtered_data)
+    if time_fig:
+        st.plotly_chart(time_fig, use_container_width=True)
+    else:
+        st.warning("Tidak ada data untuk menampilkan tren waktu")
     
-    # Location distribution - REPLACED WITH MAP
-    create_location_distribution_section(filtered_df)
+    # Location distribution
+    st.markdown("## 🗺️ Distribusi Kejahatan per Wilayah")
     
-    # Demographics section - IMPROVED VERSION
+    # Determine whether to hide summary sections
+    hide_summary = (selected_province != 'Semua')
+    
+    if hide_summary:
+        # When province is selected, show only the map
+        map_fig, _ = create_indonesia_crime_map(filtered_data, hide_summary=True)
+        if map_fig:
+            st.plotly_chart(map_fig, use_container_width=True)
+        else:
+            st.warning("Tidak ada data untuk menampilkan peta")
+    else:
+        # When no province filter, show map + summary
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            map_fig, summary_table = create_indonesia_crime_map(filtered_data, hide_summary=False)
+            if map_fig:
+                st.plotly_chart(map_fig, use_container_width=True)
+            else:
+                st.warning("Tidak ada data untuk menampilkan peta")
+        
+        with col2:
+            if summary_table is not None:
+                st.markdown("### 📊 Top 10 Provinsi")
+                st.dataframe(summary_table, use_container_width=True, hide_index=True)
+                
+                # Quick insights
+                st.markdown("### 🔍 Insights Cepat")
+                if not summary_table.empty:
+                    highest_province = summary_table.iloc[0]
+                    st.info(f"📍 **Provinsi dengan kasus terbanyak:** {highest_province['Provinsi']} ({highest_province['Total Kasus']} kasus)")
+                    
+                    avg_cases = summary_table['Total Kasus'].apply(lambda x: float(x.replace(',', ''))).mean()
+                    st.info(f"📊 **Rata-rata kasus per provinsi:** {avg_cases:,.0f}")
+    
+    # Demographics section
     st.markdown("## 👥 Analisis Demografi Pelaku")
     
-    # Create tabs for better organization
     tab1, tab2 = st.tabs(["📊 Distribusi Umum", "💼 Analisis Pekerjaan"])
     
     with tab1:
         col1, col2 = st.columns([1, 1])
         
-        fig_age, fig_gender, fig_occupation = create_demographics_charts(filtered_df)
+        fig_age, fig_gender, fig_occupation = create_demographics_charts(filtered_data)
         
         with col1:
             st.plotly_chart(fig_age, use_container_width=True)
@@ -530,36 +626,51 @@ def main():
             st.plotly_chart(fig_gender, use_container_width=True)
     
     with tab2:
-        # Full width for occupation chart since it needs more space
         st.plotly_chart(fig_occupation, use_container_width=True)
         
         # Add summary statistics
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            avg_age = filtered_df['perp_age'].mean()
-            st.metric(
-                label="Rata-rata Usia Pelaku",
-                value=f"{avg_age:.1f} tahun"
-            )
+            if not filtered_data['age'].empty:
+                # Calculate weighted average age
+                age_groups = filtered_data['age']['age'].unique()
+                age_totals = filtered_data['age'].groupby('age')['count_age'].sum()
+                dominant_age = age_totals.idxmax() if not age_totals.empty else "N/A"
+                st.metric(
+                    label="Kelompok Usia Dominan",
+                    value=dominant_age
+                )
+            else:
+                st.metric(label="Kelompok Usia Dominan", value="N/A")
         
         with col2:
-            most_common_gender = filtered_df['perp_gender'].mode()[0]
-            gender_pct = (filtered_df['perp_gender'].value_counts().iloc[0] / len(filtered_df) * 100)
-            st.metric(
-                label="Jenis Kelamin Dominan",
-                value=most_common_gender,
-                delta=f"{gender_pct:.1f}%"
-            )
+            if not filtered_data['sex'].empty:
+                gender_totals = filtered_data['sex'].groupby('sex')['count_sex'].sum()
+                most_common_gender = gender_totals.idxmax()
+                gender_mapping = {'L': 'Laki-laki', 'P': 'Perempuan', 'unknown': 'Tidak Diketahui'}
+                gender_name = gender_mapping.get(most_common_gender, most_common_gender)
+                gender_pct = (gender_totals.max() / gender_totals.sum() * 100)
+                st.metric(
+                    label="Jenis Kelamin Dominan",
+                    value=gender_name,
+                    delta=f"{gender_pct:.1f}%"
+                )
+            else:
+                st.metric(label="Jenis Kelamin Dominan", value="N/A", delta="0%")
         
         with col3:
-            most_common_job = filtered_df['perp_occupation'].mode()[0]
-            job_count = filtered_df['perp_occupation'].value_counts().iloc[0]
-            st.metric(
-                label="Pekerjaan Terbanyak",
-                value=most_common_job,
-                delta=f"{job_count} kasus"
-            )
+            if not filtered_data['occupation'].empty:
+                job_totals = filtered_data['occupation'].groupby('occupation')['count_occupation'].sum()
+                most_common_job = job_totals.idxmax()
+                job_count = job_totals.max()
+                st.metric(
+                    label="Pekerjaan Terbanyak",
+                    value=most_common_job[:15] + "..." if len(most_common_job) > 15 else most_common_job,
+                    delta=f"{job_count:,.0f} kasus"
+                )
+            else:
+                st.metric(label="Pekerjaan Terbanyak", value="N/A", delta="0 kasus")
     
     # Motive analysis
     st.markdown("## 🎯 Analisis Motif Kejahatan")
@@ -567,34 +678,32 @@ def main():
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        try:
-            fig_wordcloud = create_motive_wordcloud(filtered_df)
-            st.pyplot(fig_wordcloud)
-        except Exception as e:
-            st.error(f"Error creating word cloud: {e}")
-            # Fallback to bar chart
-            motive_data = filtered_df['motive'].value_counts().head(10).reset_index()
-            motive_data.columns = ['Motive', 'Count']
-            fig_motive = px.bar(motive_data, x='Count', y='Motive', orientation='h')
-            fig_motive.update_layout(template='plotly_dark')
+        fig_motive, wordcloud_fig = create_motive_wordcloud(filtered_data)
+        if wordcloud_fig:
+            st.pyplot(wordcloud_fig)
+        elif fig_motive:
             st.plotly_chart(fig_motive, use_container_width=True)
+        else:
+            st.warning("Tidak ada data motif untuk ditampilkan")
     
     with col2:
-        st.markdown("### Top 10 Motif")
-        motive_counts = filtered_df['motive'].value_counts().head(10)
-        for i, (motive, count) in enumerate(motive_counts.items(), 1):
-            st.write(f"{i}. **{motive}**: {count} kasus")
-    
-
+        if not filtered_data['motive'].empty:
+            st.markdown("### Top 10 Motif")
+            motive_counts = filtered_data['motive'].groupby('motive')['count_motive'].sum().sort_values(ascending=False).head(10)
+            for i, (motive, count) in enumerate(motive_counts.items(), 1):
+                st.write(f"{i}. **{motive}**: {count:,.0f} kasus")
+        else:
+            st.markdown("### Top 10 Motif")
+            st.write("Tidak ada data motif tersedia")
     
     # Footer
     st.markdown("---")
     st.markdown(
         """
         <div style='text-align: center; color: #666;'>
-            Dashboard Data Kejahatan Indonesia | Data simulasi untuk tujuan demonstrasi
+            Dashboard Data Kejahatan Indonesia | Data untuk tujuan analisis
         </div>
-        """, 
+        """,
         unsafe_allow_html=True
     )
 
