@@ -50,6 +50,18 @@ def load_all_data():
     
     return data
 
+def initialize_session_state(min_date, max_date, provinces, crime_types):
+    if 'applied_filters' not in st.session_state:
+        st.session_state.applied_filters = {
+            'start_date': min_date,
+            'end_date': max_date,
+            'selected_province': 'Semua',
+            'selected_crimes': []
+        }
+    
+    if 'current_filters' not in st.session_state:
+        st.session_state.current_filters = st.session_state.applied_filters.copy()
+
 def get_date_range(data):
     """Get the min and max date range from all data"""
     all_dates = []
@@ -106,6 +118,120 @@ def filter_data_by_date_and_location(data, start_date, end_date, selected_provin
         filtered_data['polda'] = data['polda'][data['polda']['province'] == selected_province]
     
     return filtered_data
+
+def create_filter_sidebar(min_date, max_date, data):
+    """Create sidebar with filters and return current filter values"""
+    st.sidebar.title("Filter Data")
+    
+    # Date range slider
+    def get_month_year_options(min_date, max_date):
+        """Generate list of (year, month) tuples and their display names"""
+        options = []
+        current = min_date
+        
+        while current <= max_date:
+            month_name = current.strftime("%b %Y")
+            options.append((current.year, current.month, month_name))
+            
+            # Move to next month
+            if current.month == 12:
+                current = current.replace(year=current.year + 1, month=1)
+            else:
+                current = current.replace(month=current.month + 1)
+        
+        return options
+    
+    month_options = get_month_year_options(min_date, max_date)
+    month_labels = [opt[2] for opt in month_options]
+
+    # Find current applied filter indices
+    applied_start = st.session_state.applied_filters['start_date']
+    applied_end = st.session_state.applied_filters['end_date']
+    
+    start_idx = 0
+    end_idx = len(month_options) - 1
+    
+    for i, (year, month, _) in enumerate(month_options):
+        if year == applied_start.year and month == applied_start.month:
+            start_idx = i
+        if year == applied_end.year and month == applied_end.month:
+            end_idx = i
+
+    # Double-sided select_slider
+    if len(month_options) > 1:
+        idx_range = st.sidebar.select_slider(
+            "Rentang Waktu Kejadian",
+            options=list(range(len(month_options))),
+            value=(start_idx, end_idx),
+            format_func=lambda x: month_options[x][2],
+            key="date_range_slider"
+        )
+
+        start_idx, end_idx = idx_range
+
+        # Ensure order
+        if start_idx > end_idx:
+            start_idx, end_idx = end_idx, start_idx
+
+        start_year, start_month, _ = month_options[start_idx]
+        end_year, end_month, _ = month_options[end_idx]
+
+        current_start_date = datetime(start_year, start_month, 1)
+        current_end_date = datetime(end_year, end_month, 1)
+    else:
+        current_start_date = min_date
+        current_end_date = max_date
+    
+    # Province filter
+    provinces = ['Semua'] + sorted(data['polda']['province'].unique().tolist())
+    current_selected_province = st.sidebar.selectbox(
+        "Lokasi", 
+        provinces,
+        index=provinces.index(st.session_state.applied_filters['selected_province']) 
+              if st.session_state.applied_filters['selected_province'] in provinces else 0,
+        key="province_select"
+    )
+    
+    # Crime type filter
+    all_crime_types = []
+    if not data['age'].empty:
+        all_crime_types = sorted(data['age']['crime_type'].unique().tolist())
+    
+    current_selected_crimes = []
+    if all_crime_types:
+        current_selected_crimes = st.sidebar.multiselect(
+            "Jenis Kejahatan",
+            all_crime_types,
+            default=st.session_state.applied_filters['selected_crimes'],
+            key="crime_types_select"
+        )
+    
+    # Terapkan button
+    apply_clicked = st.sidebar.button("Terapkan", use_container_width=True, type="secondary")
+    
+    # Handle button click
+    if apply_clicked:
+        st.session_state.applied_filters = {
+            'start_date': current_start_date,
+            'end_date': current_end_date,
+            'selected_province': current_selected_province,
+            'selected_crimes': current_selected_crimes
+        }
+        st.rerun()
+    
+    # Show current applied filters info
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### Filter Aktif")
+    applied = st.session_state.applied_filters
+    st.sidebar.info(f"""
+    **Periode:** {applied['start_date'].strftime('%b %Y')} - {applied['end_date'].strftime('%b %Y')}
+    
+    **Lokasi:** {applied['selected_province']}
+    
+    **Jenis Kejahatan:** {len(applied['selected_crimes'])} dipilih
+    """)
+    
+    return st.session_state.applied_filters
 
 def scale_marker_sizes(values, min_size=8, max_size=50, method='sqrt'):
     values = np.array(values)
@@ -296,11 +422,6 @@ def create_indonesia_crime_map(filtered_data, hide_summary=False):
     
     # Update layout for Indonesia focus
     fig.update_layout(
-        # title={
-        #     'text': 'Peta Distribusi Kejahatan di Indonesia',
-        #     'x': 0.5,
-        #     'font': {'size': 20, 'color': 'white'}
-        # },
         geo=dict(
             projection_type='natural earth',
             showland=True,
@@ -489,7 +610,6 @@ def create_motive_wordcloud(filtered_data):
         fig, ax = plt.subplots(figsize=(10, 5))
         ax.imshow(wordcloud, interpolation='bilinear')
         ax.axis('off')
-        # ax.set_title('Word Cloud Motif Kejahatan', color='white', fontsize=16, pad=20)
         fig.patch.set_facecolor('black')
         wordcloud_fig = fig
     except Exception as e:
@@ -512,111 +632,43 @@ def main():
     # Get date range
     min_date, max_date = get_date_range(data)
     
-    # Sidebar filters
-    st.sidebar.title("Filter Data")
-    
-    # Date range slider
-    # st.sidebar.markdown("### Rentang Waktu")
-    
-    # Create list of all available months
-    def get_month_year_options(min_date, max_date):
-        """Generate list of (year, month) tuples and their display names"""
-        options = []
-        current = min_date
-        
-        while current <= max_date:
-            month_name = current.strftime("%b %Y")
-            options.append((current.year, current.month, month_name))
-            
-            # Move to next month
-            if current.month == 12:
-                current = current.replace(year=current.year + 1, month=1)
-            else:
-                current = current.replace(month=current.month + 1)
-        
-        return options
-    
-    month_options = get_month_year_options(min_date, max_date)
-    
-    # Create slider with month/year options
-    month_labels = [opt[2] for opt in month_options]
-
-    # Double-sided select_slider
-    if len(month_options) > 1:
-        idx_range = st.sidebar.select_slider(
-            "Rentang Waktu Kejadian",
-            options=list(range(len(month_options))),
-            value=(0, len(month_options) - 1),
-            format_func=lambda x: month_options[x][2]
-        )
-
-        start_idx, end_idx = idx_range
-
-        # Ensure order
-        if start_idx > end_idx:
-            start_idx, end_idx = end_idx, start_idx
-
-        start_year, start_month, _ = month_options[start_idx]
-        end_year, end_month, _ = month_options[end_idx]
-
-        start_date = datetime(start_year, start_month, 1)
-        end_date = datetime(end_year, end_month, 1)
-    else:
-        start_date = min_date
-        end_date = max_date
-    
-    # Location filters
-    # st.sidebar.markdown("### Lokasi")
-    
-    # Province filter
-    provinces = ['Semua'] + sorted(data['polda']['province'].unique().tolist())
-    selected_province = st.sidebar.selectbox("Lokasi", provinces)
-
-    selected_polda = selected_province
-    
-    # # Polda filter (conditional based on province selection)
-    # if selected_province != 'Semua':
-    #     available_poldas = data['polda'][data['polda']['province'] == selected_province]['polda'].tolist()
-    #     poldas = ['Semua'] + sorted(available_poldas)
-    #     selected_polda = st.sidebar.selectbox("Pilih Polda", poldas)
-    # else:
-    #     poldas = ['Semua'] + sorted(data['polda']['polda'].unique().tolist())
-    #     selected_polda = st.sidebar.selectbox("Pilih Polda", poldas)
-    
-    # Crime type filter
-    # st.sidebar.markdown("### Filter Jenis Kejahatan")
+    # Get crime types
     all_crime_types = []
     if not data['age'].empty:
         all_crime_types = sorted(data['age']['crime_type'].unique().tolist())
     
-    if all_crime_types:
-        selected_crimes = st.sidebar.multiselect(
-            "Jenis Kejahatan",
-            all_crime_types,
-            # default=all_crime_types[:5] if len(all_crime_types) >= 5 else all_crime_types
-        )
-    else:
-        selected_crimes = []
+    # Get provinces
+    provinces = sorted(data['polda']['province'].unique().tolist())
     
-    # Apply filters
+    # Initialize session state
+    initialize_session_state(min_date, max_date, provinces, all_crime_types)
+    
+    # Create sidebar with filters
+    applied_filters = create_filter_sidebar(min_date, max_date, data)
+    
+    # Apply filters using the applied (not current) filter values
     filtered_data = filter_data_by_date_and_location(
-        data, start_date, end_date, selected_province, selected_polda
+        data, 
+        applied_filters['start_date'], 
+        applied_filters['end_date'], 
+        applied_filters['selected_province']
     )
     
     # Further filter by crime type
-    if selected_crimes:
+    if applied_filters['selected_crimes']:
         for key in ['age', 'sex', 'occupation', 'location', 'time', 'status', 'motive']:
             if not filtered_data[key].empty and 'crime_type' in filtered_data[key].columns:
-                filtered_data[key] = filtered_data[key][filtered_data[key]['crime_type'].isin(selected_crimes)]
+                filtered_data[key] = filtered_data[key][filtered_data[key]['crime_type'].isin(applied_filters['selected_crimes'])]
     
     # Main dashboard
     st.title("🚔 Dashboard Data Kejahatan Indonesia 🚔 ")
-    st.markdown(f"**Periode:** {start_date.strftime('%B %Y')} - {end_date.strftime('%B %Y')}")
-    if selected_province != 'Semua':
-        st.markdown(f"**Provinsi:** {selected_province}")
-    if selected_polda != 'Semua':
-        st.markdown(f"**Polda:** {selected_polda}")
-    st.markdown("---")
+    st.markdown("")
+    # st.markdown(f"**Periode:** {start_date.strftime('%B %Y')} - {end_date.strftime('%B %Y')}")
+    # if selected_province != 'Semua':
+    #     st.markdown(f"**Provinsi:** {selected_province}")
+    # if selected_polda != 'Semua':
+    #     st.markdown(f"**Polda:** {selected_polda}")
+    # st.markdown("---")
     
     # Metrics cards
     create_metrics_cards(filtered_data)
@@ -634,7 +686,7 @@ def main():
     st.markdown("## Distribusi Kejahatan per Wilayah")
     
     # Determine whether to hide summary sections
-    hide_summary = (selected_province != 'Semua')
+    hide_summary = (applied_filters['selected_province'] != 'Semua')
     
     if hide_summary:
         # When province is selected, show only the map
