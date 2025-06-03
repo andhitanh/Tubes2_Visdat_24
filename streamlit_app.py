@@ -219,6 +219,14 @@ def create_indonesia_crime_map(filtered_data, hide_summary=False):
     map_data = pd.merge(polda_stats, filtered_data['polda'], on='polda', how='left')
     map_data['top_3_crimes'] = map_data['polda'].map(top_crimes_by_polda)
     
+
+    if hide_summary:
+        size_multiplier = 8
+        min_size = 10
+    else:
+        size_multiplier = 18
+        min_size = 4
+
     # Create the map
     fig = go.Figure()
     
@@ -228,8 +236,8 @@ def create_indonesia_crime_map(filtered_data, hide_summary=False):
         text=map_data['polda'],
         mode='markers',
         marker=dict(
-            size=np.sqrt(map_data['total_cases']) / 5,  # Scale marker size
-            sizemin=8,
+            size=np.sqrt(map_data['total_cases']) / size_multiplier,  # Scale marker size
+            sizemin=min_size,
             color=map_data['total_cases'],
             colorscale='Reds',
             colorbar=dict(
