@@ -137,7 +137,8 @@ def create_metrics_cards(filtered_data):
     
     with col3:
         if not filtered_data['status'].empty:
-            ongoing_cases = filtered_data['status'][filtered_data['status']['status'] == 'Dalam Proses']['count_status'].sum()
+            ongoing_statuses = ['Dalam Proses','Proses Sidik', 'Proses Lidik']
+            ongoing_cases = filtered_data['status'][filtered_data['status']['status'].isin(ongoing_statuses)]['count_status'].sum()
             total_status_cases = filtered_data['status']['count_status'].sum()
             percentage = (ongoing_cases/total_status_cases*100) if total_status_cases > 0 else 0
             st.metric(
@@ -150,7 +151,8 @@ def create_metrics_cards(filtered_data):
     
     with col4:
         if not filtered_data['status'].empty:
-            resolved_cases = filtered_data['status'][filtered_data['status']['status'] == 'Selesai']['count_status'].sum()
+            completed_statuses = ['Selesai', 'Selesai Perkara (CC)', 'Selesai Perkara']
+            resolved_cases = filtered_data['status'][filtered_data['status']['status'].isin(completed_statuses)]['count_status'].sum()
             total_status_cases = filtered_data['status']['count_status'].sum()
             resolution_rate = (resolved_cases/total_status_cases*100) if total_status_cases > 0 else 0
             st.metric(
@@ -432,7 +434,7 @@ def create_motive_wordcloud(filtered_data):
         fig, ax = plt.subplots(figsize=(10, 5))
         ax.imshow(wordcloud, interpolation='bilinear')
         ax.axis('off')
-        ax.set_title('Word Cloud Motif Kejahatan', color='white', fontsize=16, pad=20)
+        # ax.set_title('Word Cloud Motif Kejahatan', color='white', fontsize=16, pad=20)
         fig.patch.set_facecolor('black')
         wordcloud_fig = fig
     except Exception as e:
