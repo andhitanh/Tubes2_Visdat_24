@@ -349,6 +349,7 @@ def create_time_series_chart(filtered_data):
     
     return fig
 
+
 def create_indonesia_crime_map(filtered_data, hide_summary=False):
     """Create interactive map of Indonesia crime data"""
     if filtered_data['age'].empty or filtered_data['polda'].empty:
@@ -397,11 +398,17 @@ def create_indonesia_crime_map(filtered_data, hide_summary=False):
             color=map_data['total_cases'],
             colorscale='Reds',
             colorbar=dict(
+                x=1,               
+                y=0,                 
+                xanchor="right",
+                yanchor="bottom", 
+                len=0.5,             
+                thickness=10,        
                 title=dict(
-                    text="Jumlah Kasus",
-                    font=dict(color='white')
+                    text="Kasus",
+                    font=dict(color='white', size=10)
                 ),
-                tickfont=dict(color='white')
+                tickfont=dict(color='white', size=8)
             ),
             line=dict(width=1, color='white'),
             opacity=0.8
@@ -422,26 +429,33 @@ def create_indonesia_crime_map(filtered_data, hide_summary=False):
     
     # Update layout for Indonesia focus
     fig.update_layout(
+        # title={
+        #     'text': 'Peta Distribusi Kejahatan di Indonesia',
+        #     'x': 0.5,
+        #     'font': {'size': 20, 'color': 'white'}
+        # },
         geo=dict(
             projection_type='natural earth',
             showland=True,
-            landcolor='rgb(40, 40, 40)',
+            landcolor='rgb(201, 189, 163)',  
             showocean=True,
-            oceancolor='rgb(20, 20, 30)',
+            oceancolor='rgb(152, 180, 176)',
             showlakes=True,
-            lakecolor='rgb(20, 20, 30)',
+            lakecolor='rgb(152, 180, 176)',
             showcountries=True,
-            countrycolor='rgb(60, 60, 60)',
+            countrycolor='rgb(110, 110, 110)',
             center=dict(lat=-2.5, lon=118),
             lonaxis=dict(range=[95, 141]),
             lataxis=dict(range=[-11, 6]),
-            bgcolor='rgba(0,0,0,0)'
+            bgcolor='rgba(245, 242, 236, 1)'  
         ),
-        height=600,
+        height=520,
+        autosize=True,
         template='plotly_dark',
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='white')
+        font=dict(color='white'),
+        margin=dict(l=5, r=5, t=5, b=5)
     )
     
     # Create summary table (only if not hiding)
@@ -454,6 +468,8 @@ def create_indonesia_crime_map(filtered_data, hide_summary=False):
         summary_table = province_summary.head(10)
     
     return fig, summary_table
+
+
 
 def create_demographics_charts(filtered_data):
     """Create demographic analysis charts (age, gender, occupation) with 'unknown' label converted"""
