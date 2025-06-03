@@ -433,7 +433,7 @@ def create_motive_wordcloud(filtered_data):
         x='Count',
         y='Motive',
         orientation='h',
-        title='Top 10 Motif Kejahatan',
+        title='Top 5 Motif Kejahatan',
         labels={'Count': 'Jumlah Kasus', 'Motive': 'Motif'},
         color='Count',
         color_continuous_scale='Reds'
@@ -496,10 +496,10 @@ def main():
     min_date, max_date = get_date_range(data)
     
     # Sidebar filters
-    st.sidebar.title("🔍 Filter Data")
+    st.sidebar.title("Filter Data")
     
     # Date range slider
-    st.sidebar.markdown("### 📅 Rentang Waktu")
+    st.sidebar.markdown("### Rentang Waktu")
     
     # Create list of all available months
     def get_month_year_options(min_date, max_date):
@@ -527,7 +527,7 @@ def main():
     # Double-sided select_slider
     if len(month_options) > 1:
         idx_range = st.sidebar.select_slider(
-            "Pilih rentang bulan/tahun:",
+            "Pilih Rentang Kejadian",
             options=list(range(len(month_options))),
             value=(0, len(month_options) - 1),
             format_func=lambda x: month_options[x][2]
@@ -549,7 +549,7 @@ def main():
         end_date = max_date
     
     # Location filters
-    st.sidebar.markdown("### 🗺️ Filter Lokasi")
+    st.sidebar.markdown("### Filter Lokasi")
     
     # Province filter
     provinces = ['Semua'] + sorted(data['polda']['province'].unique().tolist())
@@ -565,7 +565,7 @@ def main():
         selected_polda = st.sidebar.selectbox("Pilih Polda", poldas)
     
     # Crime type filter
-    st.sidebar.markdown("### 🚔 Filter Jenis Kejahatan")
+    st.sidebar.markdown("### Filter Jenis Kejahatan")
     all_crime_types = []
     if not data['age'].empty:
         all_crime_types = sorted(data['age']['crime_type'].unique().tolist())
@@ -591,7 +591,7 @@ def main():
                 filtered_data[key] = filtered_data[key][filtered_data[key]['crime_type'].isin(selected_crimes)]
     
     # Main dashboard
-    st.title("🚔 Dashboard Data Kejahatan Indonesia")
+    st.title("🚔 Dashboard Data Kejahatan Indonesia 🚔 ")
     st.markdown(f"**Periode:** {start_date.strftime('%B %Y')} - {end_date.strftime('%B %Y')}")
     if selected_province != 'Semua':
         st.markdown(f"**Provinsi:** {selected_province}")
@@ -604,7 +604,7 @@ def main():
     st.markdown("---")
     
     # Time series analysis
-    st.markdown("## 📈 Analisis Tren Waktu")
+    st.markdown("## Analisis Tren Waktu")
     time_fig = create_time_series_chart(filtered_data)
     if time_fig:
         st.plotly_chart(time_fig, use_container_width=True)
@@ -612,7 +612,7 @@ def main():
         st.warning("Tidak ada data untuk menampilkan tren waktu")
     
     # Location distribution
-    st.markdown("## 🗺️ Distribusi Kejahatan per Wilayah")
+    st.markdown("## Distribusi Kejahatan per Wilayah")
     
     # Determine whether to hide summary sections
     hide_summary = (selected_province != 'Semua')
@@ -637,22 +637,22 @@ def main():
         
         with col2:
             if summary_table is not None:
-                st.markdown("### 📊 Top 10 Provinsi")
+                st.markdown("### Top 10 Provinsi")
                 st.dataframe(summary_table, use_container_width=True, hide_index=True)
                 
                 # Quick insights
-                st.markdown("### 🔍 Insights Cepat")
+                # st.markdown("### Insights Cepat")
                 if not summary_table.empty:
                     highest_province = summary_table.iloc[0]
-                    st.info(f"📍 **Provinsi dengan kasus terbanyak:** {highest_province['Provinsi']} ({highest_province['Total Kasus']} kasus)")
+                    # st.info(f"**Provinsi dengan kasus terbanyak:** {highest_province['Provinsi']} ({highest_province['Total Kasus']} kasus)")
                     
                     avg_cases = summary_table['Total Kasus'].apply(lambda x: float(x.replace(',', ''))).mean()
-                    st.info(f"📊 **Rata-rata kasus per provinsi:** {avg_cases:,.0f}")
+                    st.info(f"**Rata-rata kasus per provinsi:** {avg_cases:,.0f}")
     
     # Demographics section
-    st.markdown("## 👥 Analisis Demografi Pelaku")
+    st.markdown("## Analisis Demografi Pelaku")
     
-    tab1, tab2 = st.tabs(["📊 Distribusi Umum", "💼 Analisis Pekerjaan"])
+    tab1, tab2 = st.tabs(["Distribusi Umum", "Analisis Pekerjaan"])
     
     with tab1:
         col1, col2 = st.columns([1, 1])
@@ -713,7 +713,7 @@ def main():
                 st.metric(label="Pekerjaan Terbanyak", value="N/A", delta="0 kasus")
     
     # Motive analysis
-    st.markdown("## 🎯 Analisis Motif Kejahatan")
+    st.markdown("## Analisis Motif Kejahatan")
     
     col1, col2 = st.columns([2, 1])
     
@@ -728,12 +728,12 @@ def main():
     
     with col2:
         if not filtered_data['motive'].empty:
-            st.markdown("### Top 10 Motif")
-            motive_counts = filtered_data['motive'].groupby('motive')['count_motive'].sum().sort_values(ascending=False).head(10)
+            st.markdown("### Top 5 Motif")
+            motive_counts = filtered_data['motive'].groupby('motive')['count_motive'].sum().sort_values(ascending=False).head(5)
             for i, (motive, count) in enumerate(motive_counts.items(), 1):
                 st.write(f"{i}. **{motive}**: {count:,.0f} kasus")
         else:
-            st.markdown("### Top 10 Motif")
+            st.markdown("### Top 5 Motif")
             st.write("Tidak ada data motif tersedia")
     
     # Footer
@@ -741,7 +741,7 @@ def main():
     st.markdown(
         """
         <div style='text-align: center; color: #666;'>
-            Dashboard Data Kejahatan Indonesia | Data untuk tujuan analisis
+            Dashboard Data Kejahatan Indonesia | IF4061 Visualisasi Data
         </div>
         """,
         unsafe_allow_html=True
