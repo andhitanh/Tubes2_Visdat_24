@@ -36,6 +36,92 @@ header {visibility: hidden;}
     border: 1px solid var(--border-color);
 }
 
+/* Default center alignment for all markdown elements */
+.stMarkdown {
+    color: var(--text-primary);
+}
+
+/* Center alignment class - untuk digunakan dengan st.markdown */
+.center-text {
+    text-align: center;
+    margin: 1rem auto;
+}
+
+/* Center alignment untuk headers */
+.center-header {
+    text-align: center;
+    margin: 1.5rem auto;
+    font-weight: 600;
+}
+
+/* Center alignment dengan background card */
+.center-card {
+    text-align: center;
+    background: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin: 1rem auto;
+    max-width: 80%;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Center alignment untuk title besar */
+.center-title {
+    text-align: center;
+    color: var(--accent-blue-light) !important;
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 2rem auto;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Center alignment untuk subtitle */
+.center-subtitle {
+    text-align: center;
+    color: var(--text-secondary) !important;
+    font-size: 1.2rem;
+    font-weight: 400;
+    margin: 1rem auto;
+}
+
+/* Center alignment dengan accent styling */
+.center-accent {
+    text-align: center;
+    color: var(--accent-blue-light) !important;
+    font-weight: 500;
+    margin: 1rem auto;
+    padding: 0.5rem;
+    border-left: 3px solid var(--accent-blue);
+    background: rgba(49, 130, 206, 0.1);
+    border-radius: 5px;
+}
+
+/* Center alignment untuk metrics display */
+.center-metric {
+    text-align: center;
+    background: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 2rem;
+    margin: 1rem auto;
+    max-width: 300px;
+}
+
+.center-metric .metric-value {
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--accent-blue-light);
+    margin-bottom: 0.5rem;
+}
+
+.center-metric .metric-label {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
 /* Sidebar styling */
 .css-1d391kg {
     background: var(--secondary-bg);
@@ -137,10 +223,6 @@ h1, h2, h3, h4, h5, h6 {
     font-family: 'Inter', sans-serif;
 }
 
-.stMarkdown {
-    color: var(--text-primary);
-}
-
 /* Sidebar title */
 .css-1d391kg h1 {
     color: var(--accent-blue-light) !important;
@@ -211,6 +293,15 @@ h1, h2, h3, h4, h5, h6 {
     .dashboard-card {
         padding: 1rem;
         margin: 0.5rem 0;
+    }
+    
+    .center-card {
+        max-width: 95%;
+        padding: 1rem;
+    }
+    
+    .center-title {
+        font-size: 2rem;
     }
 }
 
