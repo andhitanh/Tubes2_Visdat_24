@@ -107,6 +107,38 @@ def filter_data_by_date_and_location(data, start_date, end_date, selected_provin
     
     return filtered_data
 
+def scale_marker_sizes(values, min_size=8, max_size=50, method='sqrt'):
+    values = np.array(values)
+    
+    if len(values) == 0:
+        return np.array([])
+    if np.all(values == values[0]):  # All values are the same
+        return np.full(len(values), (min_size + max_size) / 2)
+    
+    if method == 'linear':
+        min_val, max_val = values.min(), values.max()
+        scaled = min_size + (values - min_val) * (max_size - min_size) / (max_val - min_val)
+        
+    elif method == 'sqrt':
+        sqrt_values = np.sqrt(values)
+        min_val, max_val = sqrt_values.min(), sqrt_values.max()
+        scaled = min_size + (sqrt_values - min_val) * (max_size - min_size) / (max_val - min_val)
+        
+    elif method == 'log':
+        log_values = np.log1p(values)  # log(1 + values)
+        min_val, max_val = log_values.min(), log_values.max()
+        scaled = min_size + (log_values - min_val) * (max_size - min_size) / (max_val - min_val)
+        
+    elif method == 'quantile':
+        percentiles = [np.percentile(values, p) for p in np.linspace(0, 100, len(values))]
+        scaled = np.interp(values, sorted(values), 
+                          np.linspace(min_size, max_size, len(values)))
+    
+    else:
+        raise ValueError("Method must be 'linear', 'sqrt', 'log', or 'quantile'")
+    
+    return scaled
+
 def create_metrics_cards(filtered_data):
     """Create top metrics cards"""
     col1, col2, col3, col4 = st.columns(4)
@@ -219,14 +251,13 @@ def create_indonesia_crime_map(filtered_data, hide_summary=False):
     map_data = pd.merge(polda_stats, filtered_data['polda'], on='polda', how='left')
     map_data['top_3_crimes'] = map_data['polda'].map(top_crimes_by_polda)
     
-
-    if hide_summary:
-        size_multiplier = 8
-        min_size = 10
-    else:
-        size_multiplier = 18
-        min_size = 4
-
+    marker_sizes = scale_marker_sizes(
+        map_data['total_cases'], 
+        min_size=8, 
+        max_size=50, 
+        method='sqrt'
+    )
+    
     # Create the map
     fig = go.Figure()
     
@@ -236,8 +267,7 @@ def create_indonesia_crime_map(filtered_data, hide_summary=False):
         text=map_data['polda'],
         mode='markers',
         marker=dict(
-            size=np.sqrt(map_data['total_cases']) / size_multiplier,  # Scale marker size
-            sizemin=min_size,
+            size=marker_sizes, 
             color=map_data['total_cases'],
             colorscale='Reds',
             colorbar=dict(
