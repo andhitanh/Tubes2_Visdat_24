@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 from collections import Counter
+import base64
+from pathlib import Path
 
 st.set_page_config(
     page_title="Indonesia Crime Data Dashboard",
@@ -38,6 +40,72 @@ CRIME_TYPE_MAPPING = {
     'Tindak Pidana Dalam Perlindungan Anak': 'Pidana Anak'
 }
 
+def set_background_image():
+    """Add background image using base64 encoding"""
+    try:
+        with open('police.png', "rb") as image_file:
+            encoded_string = base64.b64encode(image_file.read()).decode()
+        
+        st.markdown(f"""
+        <style>
+        .stApp {{
+            background-image: url("data:image/png;base64,{encoded_string}") !important;
+            background-size: cover !important;
+            background-position: center !important;
+            background-repeat: no-repeat !important;
+            background-attachment: fixed !important;
+            min-height: 100vh !important;
+        }}
+        
+        .stApp > header {{
+            background: transparent !important;
+        }}
+        
+        .stApp > .main {{
+            background: transparent !important;
+        }}
+        
+        .stApp > .main > div {{
+            background: transparent !important;
+        }}
+        
+        .main .block-container {{
+            background-color: rgba(13, 17, 23, 0.4) !important;
+            border-radius: 15px;
+            # padding: 2rem;
+            # margin: 1rem;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }}
+        
+        .css-1d391kg, .css-1lcbmhc {{
+            background-color: rgba(13, 17, 23, 0.5) !important;
+            backdrop-filter: blur(5px);
+        }}
+        
+        .stApp [data-testid="stSidebar"] {{
+            background-color: rgba(13, 17, 23, 0.6) !important;
+            backdrop-filter: blur(8px);
+        }}
+        
+        .stApp [data-testid="stSidebar"] > div {{
+            background-color: transparent !important;
+        }}
+        
+        div[data-testid="metric-container"] {{
+            background-color: rgba(13, 17, 23, 0.3) !important;
+            border-radius: 10px;
+            padding: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(5px);
+        }}
+        </style>
+        """, unsafe_allow_html=True)
+    except FileNotFoundError:
+        st.warning("Background image 'background.png' not found")
+
+
 def get_short_crime_name(crime_type):
     return CRIME_TYPE_MAPPING.get(crime_type, crime_type)
 
@@ -47,6 +115,7 @@ def load_css():
             st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
     except FileNotFoundError:
         pass 
+    set_background_image()
 
 @st.cache_data
 def load_all_data():
