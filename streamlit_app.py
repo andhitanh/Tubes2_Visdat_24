@@ -277,7 +277,8 @@ def create_metrics_cards(filtered_data):
         st.metric(
             label="Total Kasus",
             value=f"{total_cases:,.0f}",
-            delta="Berdasarkan data terpilih"
+            delta="Berdasarkan data terpilih",
+            delta_color="off"
         )
     
     with col2:
@@ -292,7 +293,8 @@ def create_metrics_cards(filtered_data):
             st.metric(
                 label="Kejahatan Terbanyak",
                 value=display_name,
-                delta=f"{crime_count:,.0f} kasus"
+                delta=f"{crime_count:,.0f} kasus",
+                delta_color="off"
             )
         else:
             st.metric(label="Kejahatan Terbanyak", value="N/A", delta="0 kasus")
@@ -306,7 +308,8 @@ def create_metrics_cards(filtered_data):
             st.metric(
                 label="Kasus Sedang Ditangani",
                 value=f"{ongoing_cases:,.0f}",
-                delta=f"{percentage:.1f}%"
+                delta=f"{percentage:.1f}%",
+                delta_color="off"
             )
         else:
             st.metric(label="Kasus Sedang Ditangani", value="N/A", delta="0%")
@@ -320,7 +323,8 @@ def create_metrics_cards(filtered_data):
             st.metric(
                 label="Tingkat Penyelesaian",
                 value=f"{resolution_rate:.1f}%",
-                delta=f"{resolved_cases:,.0f} kasus"
+                delta=f"{resolved_cases:,.0f} kasus",
+                delta_color="off"
             )
         else:
             st.metric(label="Tingkat Penyelesaian", value="0%", delta="0 kasus")
