@@ -850,9 +850,13 @@ def main():
                 job_totals = filtered_data['occupation'].groupby('occupation')['count_occupation'].sum()
                 most_common_job = job_totals.idxmax()
                 job_count = job_totals.max()
+                
+                display_job = "Tidak Diketahui" if most_common_job == "unknown" else most_common_job
+                display_job = display_job[:15] + "..." if len(display_job) > 15 else display_job
+                
                 st.metric(
                     label="Pekerjaan Terbanyak",
-                    value=most_common_job[:15] + "..." if len(most_common_job) > 15 else most_common_job,
+                    value=display_job,
                     delta=f"{job_count:,.0f} kasus"
                 )
             else:
