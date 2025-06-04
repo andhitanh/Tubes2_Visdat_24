@@ -431,6 +431,7 @@ def create_indonesia_crime_map(filtered_data, hide_summary=False):
     
     top_crimes_by_polda = {}
     peak_times_by_polda = {}
+    peak_locations_by_polda = {}
     
     for polda in polda_stats['polda'].unique():
         polda_crimes = filtered_data['age'][filtered_data['age']['polda'] == polda]
@@ -458,10 +459,26 @@ def create_indonesia_crime_map(filtered_data, hide_summary=False):
                 peak_times_by_polda[polda] = "Data tidak tersedia"
         else:
             peak_times_by_polda[polda] = "Data tidak tersedia"
+        
+        if not filtered_data['location'].empty:
+            polda_location_data = filtered_data['location'][filtered_data['location']['polda'] == polda]
+            if not polda_location_data.empty:
+                location_totals = polda_location_data.groupby('location')['count_location'].sum().sort_values(ascending=False)
+                if not location_totals.empty:
+                    peak_location = location_totals.index[0]
+                    peak_location_count = location_totals.iloc[0]
+                    peak_locations_by_polda[polda] = f"{peak_location} ({peak_location_count:,.0f} kasus)"
+                else:
+                    peak_locations_by_polda[polda] = "Data tidak tersedia"
+            else:
+                peak_locations_by_polda[polda] = "Data tidak tersedia"
+        else:
+            peak_locations_by_polda[polda] = "Data tidak tersedia"
     
     map_data = pd.merge(polda_stats, filtered_data['polda'], on='polda', how='left')
     map_data['top_3_crimes'] = map_data['polda'].map(top_crimes_by_polda)
     map_data['peak_time'] = map_data['polda'].map(peak_times_by_polda)
+    map_data['peak_location'] = map_data['polda'].map(peak_locations_by_polda)
     
     marker_sizes = scale_marker_sizes(
         map_data['total_cases'], 
@@ -502,12 +519,14 @@ def create_indonesia_crime_map(filtered_data, hide_summary=False):
         "<b>Provinsi:</b> %{customdata[0]}<br>" +
         "<b>Total Kasus:</b> %{customdata[1]:,}<br>" +
         "<b>Waktu Puncak:</b> %{customdata[2]}<br>" +
-        "<b>3 Kejahatan Teratas:</b><br>%{customdata[3]}<br>" +
+        "<b>Lokasi Puncak:</b> %{customdata[3]}<br>" +
+        "<b>3 Kejahatan Teratas:</b><br>%{customdata[4]}<br>" +
         "<extra></extra>",
         customdata=list(zip(
             map_data['province'],
             map_data['total_cases'],
             map_data['peak_time'],
+            map_data['peak_location'],
             map_data['top_3_crimes']
         )),
         name=""
