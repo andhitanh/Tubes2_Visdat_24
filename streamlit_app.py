@@ -670,7 +670,7 @@ def create_motive_wordcloud(filtered_data):
     
     motive_data = filtered_data['motive'].groupby('motive')['count_motive'].sum().sort_values(ascending=False)
     
-    motive_df = motive_data.head(10).reset_index()
+    motive_df = motive_data.head(50).reset_index()
     motive_df.columns = ['Motive', 'Count']
     
     fig_motive = px.bar(
@@ -760,7 +760,7 @@ def main():
             if not filtered_data[key].empty and 'crime_type' in filtered_data[key].columns:
                 filtered_data[key] = filtered_data[key][filtered_data[key]['crime_type'].isin(applied_filters['selected_crimes'])]
     
-    st.title("🚔 Dashboard Data Kejahatan Indonesia 🚔 ")
+    st.title("🚔 Dashboard Data Kejahatan di Indonesia 🚔 ")
     st.markdown("")
     
     create_metrics_cards(filtered_data)
