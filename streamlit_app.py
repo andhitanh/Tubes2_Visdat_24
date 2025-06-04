@@ -40,6 +40,9 @@ CRIME_TYPE_MAPPING = {
     'Tindak Pidana Dalam Perlindungan Anak': 'Pidana Anak'
 }
 
+def get_short_crime_name(crime_type):
+    return CRIME_TYPE_MAPPING.get(crime_type, crime_type)
+
 def set_background_image():
     """Add background image using base64 encoding"""
     try:
@@ -72,8 +75,8 @@ def set_background_image():
         .main .block-container {{
             background-color: rgba(13, 17, 23, 0.4) !important;
             border-radius: 15px;
-            # padding: 2rem;
-            # margin: 1rem;
+            padding: 2rem;
+            margin: 1rem;
             backdrop-filter: blur(5px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
@@ -105,16 +108,12 @@ def set_background_image():
     except FileNotFoundError:
         st.warning("Background image 'background.png' not found")
 
-
-def get_short_crime_name(crime_type):
-    return CRIME_TYPE_MAPPING.get(crime_type, crime_type)
-
 def load_css():
     try:
         with open('style.css') as f:
             st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
     except FileNotFoundError:
-        pass 
+        pass
     set_background_image()
 
 @st.cache_data
@@ -346,8 +345,7 @@ def create_metrics_cards(filtered_data):
         st.metric(
             label="Total Kasus",
             value=f"{total_cases:,.0f}",
-            delta="Berdasarkan data terpilih",
-            delta_color="off"
+            delta="Berdasarkan data terpilih"
         )
     
     with col2:
@@ -362,8 +360,7 @@ def create_metrics_cards(filtered_data):
             st.metric(
                 label="Kejahatan Terbanyak",
                 value=display_name,
-                delta=f"{crime_count:,.0f} kasus",
-                delta_color="off"
+                delta=f"{crime_count:,.0f} kasus"
             )
         else:
             st.metric(label="Kejahatan Terbanyak", value="N/A", delta="0 kasus")
@@ -377,8 +374,7 @@ def create_metrics_cards(filtered_data):
             st.metric(
                 label="Kasus Sedang Ditangani",
                 value=f"{ongoing_cases:,.0f}",
-                delta=f"{percentage:.1f}%",
-                delta_color="off"
+                delta=f"{percentage:.1f}%"
             )
         else:
             st.metric(label="Kasus Sedang Ditangani", value="N/A", delta="0%")
@@ -392,8 +388,7 @@ def create_metrics_cards(filtered_data):
             st.metric(
                 label="Tingkat Penyelesaian",
                 value=f"{resolution_rate:.1f}%",
-                delta=f"{resolved_cases:,.0f} kasus",
-                delta_color="off"
+                delta=f"{resolved_cases:,.0f} kasus"
             )
         else:
             st.metric(label="Tingkat Penyelesaian", value="0%", delta="0 kasus")
@@ -424,7 +419,6 @@ def create_time_series_chart(filtered_data):
     
     return fig
 
-
 def create_indonesia_crime_map(filtered_data, hide_summary=False):
     if filtered_data['age'].empty or filtered_data['polda'].empty:
         st.warning("Tidak ada data untuk ditampilkan pada peta")
@@ -436,6 +430,8 @@ def create_indonesia_crime_map(filtered_data, hide_summary=False):
     polda_stats.columns = ['polda', 'total_cases']
     
     top_crimes_by_polda = {}
+    peak_times_by_polda = {}
+    
     for polda in polda_stats['polda'].unique():
         polda_crimes = filtered_data['age'][filtered_data['age']['polda'] == polda]
         crime_totals = polda_crimes.groupby('crime_type')['count_age'].sum().sort_values(ascending=False)
@@ -446,9 +442,26 @@ def create_indonesia_crime_map(filtered_data, hide_summary=False):
             short_name = get_short_crime_name(crime)
             top_crimes_text.append(f"• {short_name}: {count:,.0f} ({percentage:.1f}%)")
         top_crimes_by_polda[polda] = '<br>'.join(top_crimes_text)
+        
+        # Calculate peak time for this polda
+        if not filtered_data['time'].empty:
+            polda_time_data = filtered_data['time'][filtered_data['time']['polda'] == polda]
+            if not polda_time_data.empty:
+                time_totals = polda_time_data.groupby('time')['count_time'].sum().sort_values(ascending=False)
+                if not time_totals.empty:
+                    peak_time = time_totals.index[0]
+                    peak_time_count = time_totals.iloc[0]
+                    peak_times_by_polda[polda] = f"{peak_time} ({peak_time_count:,.0f} kasus)"
+                else:
+                    peak_times_by_polda[polda] = "Data tidak tersedia"
+            else:
+                peak_times_by_polda[polda] = "Data tidak tersedia"
+        else:
+            peak_times_by_polda[polda] = "Data tidak tersedia"
     
     map_data = pd.merge(polda_stats, filtered_data['polda'], on='polda', how='left')
     map_data['top_3_crimes'] = map_data['polda'].map(top_crimes_by_polda)
+    map_data['peak_time'] = map_data['polda'].map(peak_times_by_polda)
     
     marker_sizes = scale_marker_sizes(
         map_data['total_cases'], 
@@ -488,11 +501,13 @@ def create_indonesia_crime_map(filtered_data, hide_summary=False):
         "<b>%{text}</b><br>" +
         "<b>Provinsi:</b> %{customdata[0]}<br>" +
         "<b>Total Kasus:</b> %{customdata[1]:,}<br>" +
-        "<b>3 Kejahatan Teratas:</b><br>%{customdata[2]}<br>" +
+        "<b>Waktu Puncak:</b> %{customdata[2]}<br>" +
+        "<b>3 Kejahatan Teratas:</b><br>%{customdata[3]}<br>" +
         "<extra></extra>",
         customdata=list(zip(
             map_data['province'],
             map_data['total_cases'],
+            map_data['peak_time'],
             map_data['top_3_crimes']
         )),
         name=""
@@ -531,8 +546,6 @@ def create_indonesia_crime_map(filtered_data, hide_summary=False):
         summary_table = province_summary.head(10)
     
     return fig, summary_table
-
-
 
 def create_demographics_charts(filtered_data):
     # ----- Age Distribution -----
@@ -849,7 +862,6 @@ def main():
             st.markdown("### Top 5 Motif")
             st.write("Tidak ada data motif tersedia")
     
-    # Footer
     st.markdown("---")
     st.markdown(
         """
