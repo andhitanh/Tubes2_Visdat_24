@@ -695,28 +695,33 @@ def create_motive_wordcloud(filtered_data):
     
     wordcloud_fig = None
     try:
-        motive_text = []
-        for motive, count in motive_data.items():
-
-            repeat_count = max(1, int(count / motive_data.sum() * 100))
-            motive_text.extend([motive] * repeat_count)
+        motive_freq = {}
+        for motive, count in motive_data.head(50).items():
+            clean_motive = str(motive).strip()
+            if clean_motive and clean_motive.lower() != 'unknown':
+                motive_freq[clean_motive] = int(count)
         
-        motive_text_str = ' '.join(motive_text)
+        if motive_freq:
+            wordcloud = WordCloud(
+                width=800,
+                height=400,
+                background_color='black',
+                colormap='Reds',
+                max_words=30,
+                relative_scaling=0.6,
+                min_font_size=20,
+                max_font_size=100,
+                prefer_horizontal=0.8,
+                collocations=False  
+            ).generate_from_frequencies(motive_freq)  
+            
+            fig, ax = plt.subplots(figsize=(10, 5))
+            ax.imshow(wordcloud, interpolation='bilinear')
+            ax.axis('off')
+            fig.patch.set_facecolor('black')
+            plt.tight_layout(pad=0)
+            wordcloud_fig = fig
         
-        wordcloud = WordCloud(
-            width=800,
-            height=400,
-            background_color='black',
-            colormap='Reds',
-            max_words=50,
-            relative_scaling=0.5
-        ).generate(motive_text_str)
-        
-        fig, ax = plt.subplots(figsize=(10, 5))
-        ax.imshow(wordcloud, interpolation='bilinear')
-        ax.axis('off')
-        fig.patch.set_facecolor('black')
-        wordcloud_fig = fig
     except Exception as e:
         st.error(f"Error creating word cloud: {e}")
     
